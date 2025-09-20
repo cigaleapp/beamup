@@ -179,13 +179,19 @@ Bun.serve({
 		}
 	},
 	error(error) {
-		const validationResponse = (issues: ArkErrors) =>
-			Response.json(
+		const validationResponse = (issues: ArkErrors) => {
+			return Response.json(
 				{
-					validation_issues: issues.map((i) => pick(i, 'path', 'message', 'actual', 'expected'))
+					validation_issues: [...issues.values()].map(({ path, message, actual, expected }) => ({
+						path,
+						message,
+						actual,
+						expected
+					}))
 				},
 				{ status: 400 }
 			);
+		};
 
 		if (error instanceof ArkErrors) {
 			return validationResponse(error);
