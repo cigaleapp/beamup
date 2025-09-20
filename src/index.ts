@@ -3,7 +3,7 @@ import { desc, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { Correction, corrections, metadataAlts, metadataValues } from './tables';
 import { alias } from 'drizzle-orm/sqlite-core';
-import { omit, uniqueBy } from './utils';
+import { omit, pick, uniqueBy } from './utils';
 import { db } from './database';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
@@ -178,14 +178,20 @@ Bun.serve({
 		}
 	},
 	error(error) {
+		const validationResponse = (issues: ArkErrors) =>
+			CorsedResponse.json(
+				{
+					validation_issues: issues.map((i) => pick(i, 'path', 'message', 'actual', 'expected'))
+				},
+				{ status: 400 }
+			);
+
 		if (error instanceof ArkErrors) {
-			console.error(error);
-			return Response.json({ validation_issues: [...error.values()] }, { status: 400 });
+			return validationResponse(error);
 		}
 
 		if (error instanceof TraversalError) {
-			console.error(error);
-			return Response.json({ validation_issues: [...error.arkErrors.values()] }, { status: 400 });
+			return validationResponse(error.arkErrors);
 		}
 
 		return CorsedResponse.json(
