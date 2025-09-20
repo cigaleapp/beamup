@@ -28,7 +28,10 @@
 		"check:clutter": "knip",
 		"migrate": "bun run migrate.ts",
 		"makemigration": "bunx drizzle-kit generate --name",
-		"dev": "bun run --watch src/index.ts"
+		"dev": "bun run --watch src/index.ts",
+		"test": "bun test",
+		"test:watch": "bun test --watch",
+		"test:coverage": "bun test --coverage"
 	},
 	"lint-staged": {
 		"*.ts": [
