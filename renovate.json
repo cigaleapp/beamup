@@ -1,0 +1,25 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:recommended", "schedule:weekly"],
+	"commitMessagePrefix": "⬆️ ",
+	"rangeStrategy": "bump",
+	"packageRules": [
+		{
+			"description": "Auto-merge updates to linters and formatters",
+			"matchDepTypes": ["devDependencies"],
+			"matchPackageNames": [
+				"eslint",
+				"@eslint/*",
+				"eslint-*",
+				"oxlint",
+				"oxlint-*",
+				"knip",
+				"prettier",
+				"prettier-*",
+				"lint-staged",
+				"svelte-check"
+			],
+			"automerge": true
+		}
+	]
+}

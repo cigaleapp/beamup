@@ -1,0 +1,18 @@
+services:
+  beamup:
+    build:
+      context: .
+    ports:
+      - 3000:3000
+    environment:
+      - DB_FILE_NAME=/usr/src/app/db.sqlite3
+    volumes:
+      - ./db.sqlite3:/usr/src/app/db.sqlite3:rw
+    develop:
+      watch:
+        - path: src/
+          target: /usr/src/app/src/
+          action: sync+restart
+        - path: drizzle/
+          target: /usr/src/app/drizzle/
+          action: sync+restart

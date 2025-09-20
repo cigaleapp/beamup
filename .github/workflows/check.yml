@@ -1,0 +1,49 @@
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint
+        run: bun run lint
+  format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Check formatting
+        run: bunx prettier --check .
+  clutter:
+    name: Check for clutter (unused stuff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Check for clutter
+        run: bun run check:clutter
