@@ -6,6 +6,7 @@ services:
       - 3000:3000
     environment:
       - DB_FILE_NAME=/app/db.sqlite3
+      - ALLOWED_ORIGINS=http://localhost:5173
     volumes:
       - ./db.sqlite3:/app/db.sqlite3:rw
     develop:

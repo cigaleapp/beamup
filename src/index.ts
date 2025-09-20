@@ -6,8 +6,10 @@ import { alias } from 'drizzle-orm/sqlite-core';
 import { omit, uniqueBy } from './utils';
 import { db } from './database';
 
+const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
+
 Bun.serve({
-	port: process.argv[2] ? parseInt(process.argv[2]) : 3000,
+	port,
 	development: !process.env.PROD,
 	routes: {
 		'/corrections': {
@@ -56,12 +58,12 @@ Bun.serve({
 					});
 				});
 
-				return Response.json({ ok: true });
+				return CorsedResponse.json({ ok: true });
 			}
 		},
 		'/corrections/:protocol': {
 			async GET({ params, url }) {
-				return Response.json(
+				return CorsedResponse.json(
 					await db
 						.select()
 						.from(corrections)
@@ -114,14 +116,18 @@ Bun.serve({
 						};
 					});
 
-				if (!data) return Response.json({ error: 'Not found' }, { status: 404 });
+				if (!data) return CorsedResponse.json({ error: 'Not found' }, { status: 404 });
 
-				return Response.json(data);
+				return CorsedResponse.json(data);
 			}
 		},
 		'/protocols': {
 			async GET({ url }) {
-				return Response.json(
+				// Otherwise we get a single group with null count when there is no correction at all
+				const count = await db.$count(corrections);
+				if (!count) return CorsedResponse.json([]);
+
+				return CorsedResponse.json(
 					await db
 						.select({
 							id: corrections.protocol_id,
@@ -141,7 +147,7 @@ Bun.serve({
 		},
 		'/': {
 			async GET({ url }) {
-				return Response.json({
+				return CorsedResponse.json({
 					'This is': 'BeamUp API for CIGALE, https://github.com/cigaleapp/beamup',
 					'List all protocols': {
 						method: 'GET',
@@ -165,10 +171,10 @@ Bun.serve({
 		},
 		async '/*'({ url }) {
 			if (new URL(url).pathname.endsWith('/')) {
-				return Response.redirect(url.slice(0, -1), 301);
+				return CorsedResponse.redirect(url.slice(0, -1), 301);
 			}
 
-			return Response.json({ error: 'Not found' }, { status: 404 });
+			return CorsedResponse.json({ error: 'Not found' }, { status: 404 });
 		}
 	},
 	error(error) {
@@ -182,6 +188,33 @@ Bun.serve({
 			return Response.json({ validation_issues: [...error.arkErrors.values()] }, { status: 400 });
 		}
 
-		return Response.json({ error: (error as Error).message ?? 'Unknown error' }, { status: 500 });
+		return CorsedResponse.json(
+			{ error: (error as Error).message ?? 'Unknown error' },
+			{ status: 500 }
+		);
 	}
 });
+
+console.info(`Server running on http://localhost:${port}`);
+console.info(`Accepting requests from ${process.env.ALLOWED_ORIGINS || '*'}`);
+
+class CorsedResponse extends Response {
+	constructor(body?: BodyInit | null, init?: ResponseInit) {
+		super(body, init);
+		this.headers.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
+	}
+
+	static json(body: any, init?: ResponseInit) {
+		const response = super.json(body, init);
+		if (!response.headers.has('Access-Control-Allow-Origin'))
+			response.headers.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
+		return response;
+	}
+
+	static redirect(url: string, status = undefined) {
+		const response = super.redirect(url, status);
+		if (!response.headers.has('Access-Control-Allow-Origin'))
+			response.headers.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
+		return response;
+	}
+}
