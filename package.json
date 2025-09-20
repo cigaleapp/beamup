@@ -23,7 +23,7 @@
 			"oxlint --fix"
 		],
 		"*": [
-			"prettier --write"
+			"prettier --write --ignore-unknown"
 		]
 	},
 	"devDependencies": {
