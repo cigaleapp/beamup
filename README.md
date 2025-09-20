@@ -19,7 +19,11 @@ await sendCorrection({
 
 ### Usage
 
-Use the Docker image [coming soon]
+Use the Docker image:
+
+```
+docker run -p 3000:3000 ghcr.io/cigaleapp/beamup:latest
+```
 
 ### Development
 
