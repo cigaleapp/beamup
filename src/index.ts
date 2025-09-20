@@ -1,10 +1,11 @@
 import { ArkErrors, TraversalError } from 'arktype';
 import { desc, eq, sql } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
-import { Correction, corrections, metadataAlts, metadataValues } from './tables';
 import { alias } from 'drizzle-orm/sqlite-core';
-import { omit, pick, uniqueBy } from './utils';
+import { nanoid } from 'nanoid';
+import { CorsedResponse as Response } from './cors';
 import { db } from './database';
+import { Correction, corrections, metadataAlts, metadataValues } from './tables';
+import { omit, pick, uniqueBy } from './utils';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
 
@@ -58,12 +59,12 @@ Bun.serve({
 					});
 				});
 
-				return CorsedResponse.json({ ok: true });
+				return Response.json({ ok: true });
 			}
 		},
 		'/corrections/:protocol': {
 			async GET({ params, url }) {
-				return CorsedResponse.json(
+				return Response.json(
 					await db
 						.select()
 						.from(corrections)
@@ -116,18 +117,18 @@ Bun.serve({
 						};
 					});
 
-				if (!data) return CorsedResponse.json({ error: 'Not found' }, { status: 404 });
+				if (!data) return Response.json({ error: 'Not found' }, { status: 404 });
 
-				return CorsedResponse.json(data);
+				return Response.json(data);
 			}
 		},
 		'/protocols': {
 			async GET({ url }) {
 				// Otherwise we get a single group with null count when there is no correction at all
 				const count = await db.$count(corrections);
-				if (!count) return CorsedResponse.json([]);
+				if (!count) return Response.json([]);
 
-				return CorsedResponse.json(
+				return Response.json(
 					await db
 						.select({
 							id: corrections.protocol_id,
@@ -147,7 +148,7 @@ Bun.serve({
 		},
 		'/': {
 			async GET({ url }) {
-				return CorsedResponse.json({
+				return Response.json({
 					'This is': 'BeamUp API for CIGALE, https://github.com/cigaleapp/beamup',
 					'List all protocols': {
 						method: 'GET',
@@ -171,15 +172,15 @@ Bun.serve({
 		},
 		async '/*'({ url }) {
 			if (new URL(url).pathname.endsWith('/')) {
-				return CorsedResponse.redirect(url.slice(0, -1), 301);
+				return Response.redirect(url.slice(0, -1), 301);
 			}
 
-			return CorsedResponse.json({ error: 'Not found' }, { status: 404 });
+			return Response.json({ error: 'Not found' }, { status: 404 });
 		}
 	},
 	error(error) {
 		const validationResponse = (issues: ArkErrors) =>
-			CorsedResponse.json(
+			Response.json(
 				{
 					validation_issues: issues.map((i) => pick(i, 'path', 'message', 'actual', 'expected'))
 				},
@@ -194,33 +195,9 @@ Bun.serve({
 			return validationResponse(error.arkErrors);
 		}
 
-		return CorsedResponse.json(
-			{ error: (error as Error).message ?? 'Unknown error' },
-			{ status: 500 }
-		);
+		return Response.json({ error: (error as Error).message ?? 'Unknown error' }, { status: 500 });
 	}
 });
 
 console.info(`Server running on http://localhost:${port}`);
 console.info(`Accepting requests from ${process.env.ALLOWED_ORIGINS || '*'}`);
-
-class CorsedResponse extends Response {
-	constructor(body?: BodyInit | null, init?: ResponseInit) {
-		super(body, init);
-		this.headers.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
-	}
-
-	static json(body: any, init?: ResponseInit) {
-		const response = super.json(body, init);
-		if (!response.headers.has('Access-Control-Allow-Origin'))
-			response.headers.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
-		return response;
-	}
-
-	static redirect(url: string, status?: number) {
-		const response = super.redirect(url, status);
-		if (!response.headers.has('Access-Control-Allow-Origin'))
-			response.headers.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
-		return response;
-	}
-}
