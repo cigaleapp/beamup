@@ -22,7 +22,7 @@ await sendCorrection({
 Use the Docker image:
 
 ```
-docker run -p 3000:3000 ghcr.io/cigaleapp/beamup:latest
+docker run -p 3000:3000 -v ./db.sqlite3:/app/db.sqlite3:rw ghcr.io/cigaleapp/beamup:latest
 ```
 
 ### Development

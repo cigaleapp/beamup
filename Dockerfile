@@ -1,7 +1,7 @@
 # use the official Bun image
 # see all versions at https://hub.docker.com/r/oven/bun/tags
 FROM oven/bun:1.2.22 AS base
-WORKDIR /usr/src/app
+WORKDIR /app
 
 # install dependencies into temp directory
 # this will cache them and speed up future builds
@@ -15,10 +15,12 @@ RUN cd /temp/dev && bun remove oxlint prettier knip
 # copy production dependencies and source code into final image
 FROM base AS release
 COPY --from=install /temp/dev/node_modules node_modules
-COPY . .
+COPY src src
+COPY drizzle drizzle
+COPY migrate.ts .
 
 # run the app
 USER bun
 EXPOSE 3000/tcp
-ENV DB_FILE_NAME=db.sqlite3
+ENV DB_FILE_NAME=/app/db.sqlite3
 ENTRYPOINT [ "sh", "-c", "bun run migrate.ts && bun run src/index.ts" ]
