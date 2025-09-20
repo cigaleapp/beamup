@@ -2,9 +2,6 @@
 	"name": "@cigale/beamup",
 	"version": "0.2.0",
 	"description": "Typed client to send corrections to a CIGALE BeamUp server",
-	"module": "dist/client.js",
-	"types": "dist/client.d.ts",
-	"type": "module",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -14,6 +11,16 @@
 		"dist",
 		"package.json"
 	],
+	"type": "module",
+	"main": "dist/client.js",
+	"exports": {
+		".": {
+			"import": "./dist/client.js",
+			"types": "./dist/client.d.ts"
+		}
+	},
+	"module": "dist/client.js",
+	"types": "dist/client.d.ts",
 	"scripts": {
 		"prepare": "bun run init-dotenv.ts && husky",
 		"lint": "oxlint",
