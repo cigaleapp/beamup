@@ -217,7 +217,7 @@ class CorsedResponse extends Response {
 		return response;
 	}
 
-	static redirect(url: string, status = undefined) {
+	static redirect(url: string, status?: number) {
 		const response = super.redirect(url, status);
 		if (!response.headers.has('Access-Control-Allow-Origin'))
 			response.headers.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');

@@ -35,9 +35,12 @@ export const metadataValues = table('metadata_values', {
 
 export const corrections = table('corrections', {
 	id: text('id').primaryKey(),
+	client_name: text('client_name'),
+	client_version: text('client_version'),
 	protocol_id: text('protocol_id').notNull(),
 	protocol_version: text('protocol_version').notNull(),
 	subject: text('subject').notNull(),
+	subject_content_hash: text('subject_content_hash'),
 	subject_type: customTypeFromArk(
 		type.enumerated('observation', 'image', 'other'),
 		'subject_type'
