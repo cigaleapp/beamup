@@ -20,7 +20,8 @@
 		"format": "prettier --write .",
 		"check:clutter": "knip",
 		"migrate": "bun run migrate.ts",
-		"makemigration": "bunx drizzle-kit generate --name"
+		"makemigration": "bunx drizzle-kit generate --name",
+		"dev": "bun run --watch src/index.ts"
 	},
 	"lint-staged": {
 		"*.ts": [
