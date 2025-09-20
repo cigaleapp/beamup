@@ -1,6 +1,6 @@
 {
 	"name": "@cigale/beamup",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Typed client to send corrections to a CIGALE BeamUp server",
 	"module": "dist/client.js",
 	"types": "dist/client.d.ts",
