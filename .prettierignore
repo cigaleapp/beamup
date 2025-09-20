@@ -6,3 +6,4 @@ bun.lock
 models/
 .prettierignore
 .husky/
+drizzle/

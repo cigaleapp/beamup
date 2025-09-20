@@ -37,6 +37,11 @@ export const corrections = table('corrections', {
 	id: text('id').primaryKey(),
 	protocol_id: text('protocol_id').notNull(),
 	protocol_version: text('protocol_version').notNull(),
+	subject: text('subject').notNull(),
+	subject_type: customTypeFromArk(
+		type.enumerated('observation', 'image', 'other'),
+		'subject_type'
+	).notNull(),
 	metadata: text('metadata').notNull(),
 	before: text('before_id')
 		.references(() => metadataValues.id)
