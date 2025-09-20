@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid';
 import { CorsedResponse as Response } from './cors';
 import { db } from './database';
 import { Correction, corrections, metadataAlts, metadataValues } from './tables';
-import { omit, pick, uniqueBy } from './utils';
+import { cli, omit, pick, uniqueBy } from './utils';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
 
@@ -199,5 +199,6 @@ Bun.serve({
 	}
 });
 
-console.info(`Server running on http://localhost:${port}`);
-console.info(`Accepting requests from ${process.env.ALLOWED_ORIGINS || '*'}`);
+console.info(`Server running on ${cli.important(`http://localhost:${port}/`)}`);
+console.info(`Accepting requests from ${cli.important(process.env.ALLOWED_ORIGINS || '*')}`);
+console.info(`Database has ${cli.important(await db.$count(corrections))} corrections stored`);

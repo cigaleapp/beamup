@@ -1,3 +1,5 @@
+import { styleText } from 'node:util';
+
 export function omit<T extends Record<string, any>, K extends keyof T>(
 	obj: null | T,
 	...key: K[]
@@ -34,3 +36,9 @@ export function uniqueBy<T, K>(arr: T[], keyFn: (item: T) => K): T[] {
 	}
 	return result;
 }
+
+export const cli = {
+	important: (str: string | number) => styleText(['bold', 'cyanBright'], str.toString()),
+	bold: (str: string | number) => styleText('bold', str.toString()),
+	cyan: (str: string | number) => styleText('cyanBright', str.toString())
+};
