@@ -17,4 +17,10 @@ export class CorsedResponse extends Response {
 			response.headers.set('Access-Control-Allow-Origin', Bun.env.ALLOWED_ORIGINS || '*');
 		return response;
 	}
+
+	static html(body: string, init?: ResponseInit) {
+		const response = new CorsedResponse(body, init);
+		response.headers.set('Content-Type', 'text/html; charset=utf-8');
+		return response;
+	}
 }
