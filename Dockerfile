@@ -10,7 +10,7 @@ RUN mkdir -p /temp/dev
 COPY package.json bun.lock init-dotenv.ts .env.example /temp/dev/
 RUN cd /temp/dev && bun install --frozen-lockfile && rm .env
 # remove devtool dependencies
-RUN cd /temp/dev && bun remove oxlint prettier knip
+RUN cd /temp/dev && bun remove oxlint prettier knip prettier-plugin-sh prettier-plugin-toml
 
 # copy production dependencies and source code into final image
 FROM base AS release
