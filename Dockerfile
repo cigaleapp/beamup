@@ -19,6 +19,22 @@ COPY src src
 COPY drizzle drizzle
 COPY migrate.ts .
 
+# set labels
+ARG description
+ARG created_at
+ARG revision
+ARG repository
+ARG version
+
+LABEL org.opencontainers.image.description=$description
+LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.created=$created_at
+LABEL org.opencontainers.image.revision=$revision
+LABEL org.opencontainers.image.source=$repository
+LABEL org.opencontainers.image.version=$version
+LABEL org.opencontainers.image.title="BeamUp Server"
+LABEL org.opencontainers.image.url=$repository
+
 # run the app
 USER bun
 EXPOSE 3000/tcp

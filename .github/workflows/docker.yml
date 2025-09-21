@@ -1,9 +1,13 @@
 name: Docker image
 
 on:
-  workflow_dispatch:
   push:
     tags: [v*]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to push
+        required: true
 
 jobs:
   build:
@@ -24,6 +28,14 @@ jobs:
           bun-version-file: .bun-version
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: Get some info for OpenContainer values from Github API
+        id: meta
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          echo "description=$(gh api repos/${{github.repository}} --jq .description)" >> $GITHUB_OUTPUT
+          echo "version=$(gh api repos/${{github.repository}}/tags --jq '.[0].name' | sed s/v//)" >> $GITHUB_OUTPUT
+          echo "now=$(date --utc --iso-8601=seconds)" >> $GITHUB_OUTPUT
       - name: Build docker image
         uses: docker/build-push-action@v6
         with:
@@ -31,5 +43,11 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:${{ github.event.inputs.tag || github.ref_name }}
           file: ./Dockerfile
+          build-args: |
+            description=${{ steps.meta.outputs.description }}
+            created_at=${{ steps.meta.outputs.now }}
+            revision=${{ github.sha }}
+            repository=https://github.com/${{ github.repository }}
+            version=${{ steps.meta.outputs.version }}
