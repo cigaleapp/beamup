@@ -1,2 +1,6 @@
+[serve.static]
+plugins = ["bun-plugin-svelte"]
+# plugins = ["./src/dashboard/svelte.ts"]
+
 [test]
 coverageThreshold = 0.90
