@@ -21,9 +21,13 @@ await sendCorrection({
 
 Use the Docker image:
 
+```sh
+docker run -p 8000:3000 -e PROD=true -v ./db/:/app/db/:rw ghcr.io/cigaleapp/beamup:latest
 ```
-docker run -p 3000:3000 -e PROD=true -v ./db.sqlite3:/app/db.sqlite3:rw ghcr.io/cigaleapp/beamup:latest
-```
+
+- `-p`: listen on host machine's :8000
+- `-e`: set to production mode
+- `-v`: mount host machine's ./db directory to container's /app/db (make sure that you can write to the dih)
 
 ### Development
 

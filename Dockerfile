@@ -38,6 +38,6 @@ LABEL org.opencontainers.image.url=$repository
 # run the app
 USER bun
 EXPOSE 3000/tcp
-ENV DB_FILE_NAME=/app/db.sqlite3
+ENV DB_FILE_NAME=/app/db/db.sqlite3
 ENV ALLOWED_ORIGINS=*
 ENTRYPOINT [ "sh", "-c", "bun run migrate.ts && bun run src/index.ts" ]
