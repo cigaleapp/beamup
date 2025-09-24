@@ -59,3 +59,5 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Run tests
         run: bun test --coverage
+      - if: failure()
+        run: echo If all tests pass, failure might be due to insufficient coverage.
