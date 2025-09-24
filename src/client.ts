@@ -14,21 +14,19 @@ export type SubjectType = typeof SendableCorrection.infer.subject_type;
 
 export async function sendCorrections({
 	origin,
-	corrections,
+	corrections: _corrections,
 	onProgress
 }: {
 	origin: string;
 	corrections: typeof SendCorrectionsRequest.infer;
-	onProgress?: (sent: number, total: number) => void | Promise<void>;
+	onProgress?: (chunk: number, sent: number, total: number) => void | Promise<void>;
 }) {
+	const corrections = Array.isArray(_corrections) ? _corrections : [_corrections];
+	const total = corrections.length;
+	const chunks = chunk(corrections, CHUNK_SIZE);
 	let sent = 0;
-	const total = Array.isArray(corrections) ? corrections.length : 1;
 
-	const chunks = Array.isArray(corrections)
-		? chunk(corrections, MAX_CORRECTIONS_PER_REQUEST)
-		: [[corrections]];
-
-	for (const chunk of chunks) {
+	for (const [i, chunk] of chunks.entries()) {
 		const response = await fetch(origin + '/corrections', {
 			method: 'POST',
 			body: JSON.stringify(chunk)
@@ -37,7 +35,7 @@ export async function sendCorrections({
 		if (!response.ok) throw new Error(response.status + ' ' + (await response.text()));
 
 		sent += chunk.length;
-		await onProgress?.(sent, total);
+		await onProgress?.(i, sent, total);
 	}
 }
 
