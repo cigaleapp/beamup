@@ -1,4 +1,4 @@
-import { ArkErrors, TraversalError } from 'arktype';
+import { ArkErrors, TraversalError, type } from 'arktype';
 import { desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
@@ -73,12 +73,16 @@ Bun.serve({
 		},
 		'/corrections/:protocol': {
 			async GET({ params, url }) {
+				const orderBy = type
+					.enumerated('received_at', 'id', 'done_at')
+					.assert(new URL(url).searchParams.get('order_by') || 'received_at');
+
 				return Response.json(
 					await db
 						.select()
 						.from(corrections)
 						.where(eq(corrections.protocol_id, params.protocol))
-						.orderBy(desc(corrections.received_at))
+						.orderBy(desc(corrections[orderBy]))
 						.then((rows) =>
 							rows.map(({ id, before: _, after: __, ...correction }) => ({
 								id,
@@ -164,6 +168,7 @@ Bun.serve({
 					},
 					'List corrections for a protocol': {
 						method: 'GET',
+						searchParams: { order_by: 'received_at (default), id, done_at' },
 						url: url + 'corrections/{protocol}'
 					},
 					'See a specific correction': {
