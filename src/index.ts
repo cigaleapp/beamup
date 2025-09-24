@@ -4,8 +4,15 @@ import { alias } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import { CorsedResponse as Response } from './cors';
 import { db } from './database';
-import { Correction, corrections, metadataAlts, metadataValues } from './tables';
-import { cli, omit, pick, uniqueBy } from './utils';
+import * as tables from './tables';
+import {
+	Correction,
+	corrections,
+	metadataAlts,
+	metadataValues,
+	SendCorrectionsRequest
+} from './tables';
+import { cli, omit, uniqueBy } from './utils';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
 
@@ -15,48 +22,48 @@ Bun.serve({
 	routes: {
 		'/corrections': {
 			async POST(req: Request) {
-				const correction = await req.json().then(Correction.assert);
+				const body = await req.json().then(SendCorrectionsRequest.assert);
+				const corrections = Array.isArray(body) ? body : [body];
 
 				console.log(
-					`Received ${correction.done_at ?? '(time unknown)'} correction for ${
-						correction.protocol_id
-					}@${correction.protocol_version} / ${correction.metadata}: ${
-						correction.before.value
-					} -> ${correction.after.value}`
+					`Received ${corrections.length.toString().padStart(3, ' ')} corrections from ${req.headers.get('origin') || 'unknown'}`
 				);
 
-				const { alternatives: beforeAlternatives, ...before } = correction.before;
-				const { alternatives: afterAlternatives, ...after } = correction.after;
-
-				const before_id = nanoid();
-				const after_id = nanoid();
-
 				await db.transaction(async (tx) => {
-					await tx.insert(metadataValues).values([
-						{ ...before, id: before_id },
-						{ ...after, id: after_id }
-					]);
+					for (const correction of corrections) {
+						const { alternatives: beforeAlternatives, ...before } = correction.before;
+						const { alternatives: afterAlternatives, ...after } = correction.after;
 
-					if (beforeAlternatives.length + afterAlternatives.length > 0)
-						await tx.insert(metadataAlts).values([
-							...beforeAlternatives.map((alt) => ({
-								metadata_value_id: before_id,
-								id: nanoid(),
-								...alt
-							})),
-							...afterAlternatives.map((alt) => ({
-								metadata_value_id: after_id,
-								id: nanoid(),
-								...alt
-							}))
+						const before_id = nanoid();
+						const after_id = nanoid();
+
+						await tx.insert(metadataValues).values([
+							{ ...before, id: before_id },
+							{ ...after, id: after_id }
 						]);
 
-					await tx.insert(corrections).values({
-						...correction,
-						id: nanoid(),
-						before: before_id,
-						after: after_id
-					});
+						if (beforeAlternatives.length + afterAlternatives.length > 0)
+							await tx.insert(metadataAlts).values([
+								...beforeAlternatives.map((alt) => ({
+									metadata_value_id: before_id,
+									id: nanoid(),
+									...alt
+								})),
+								...afterAlternatives.map((alt) => ({
+									metadata_value_id: after_id,
+									id: nanoid(),
+									...alt
+								}))
+							]);
+
+						await tx.insert(tables.corrections).values({
+							...correction,
+							received_at: new Date().toISOString(),
+							id: nanoid(),
+							before: before_id,
+							after: after_id
+						});
+					}
 				});
 
 				return Response.json({ ok: true });

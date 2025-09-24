@@ -1,17 +1,15 @@
-import type { Correction, CorrectionsList } from './tables';
+import { type Correction, SendCorrectionsRequest, type CorrectionsList } from './tables';
 
-type MakeOptional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
-
-export async function sendCorrection({
+export async function sendCorrections({
 	origin,
-	...correction
-}: MakeOptional<typeof Correction.infer, 'sent_at'> & { origin: string }) {
+	corrections
+}: {
+	origin: string;
+	corrections: typeof SendCorrectionsRequest.infer;
+}) {
 	const response = await fetch(origin + '/corrections', {
 		method: 'POST',
-		body: JSON.stringify({
-			sent_at: new Date().toISOString(),
-			...correction
-		})
+		body: JSON.stringify(SendCorrectionsRequest.assert(corrections))
 	});
 
 	if (response.ok) return;

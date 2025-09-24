@@ -71,6 +71,10 @@ export const Correction = createSelectSchema(corrections, {
 	after: MetadataValue
 }).omit('id');
 
+export const SendCorrectionsRequest = Correction.omit('received_at').or(
+	Correction.omit('received_at').array()
+);
+
 export const CorrectionsList = createSelectSchema(corrections)
 	.omit('before', 'after')
 	.and({
