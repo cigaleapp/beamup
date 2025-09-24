@@ -27,7 +27,7 @@ Bun.serve({
 				const body = await req.json().then(SendCorrectionsRequest.assert);
 				const corrections = Array.isArray(body) ? body : [body];
 
-				console.log(
+				console.info(
 					`Received ${c.strong(corrections.length.toString().padStart(3, ' '))} corrections from ${c.em(req.headers.get('origin') || 'unknown')}`
 				);
 
@@ -146,7 +146,6 @@ Bun.serve({
 						.from(corrections)
 						.orderBy(corrections.protocol_id)
 						.then((protocols) => {
-							console.log(protocols);
 							return uniqueBy(protocols, (p) => p.id).map((protocol) => ({
 								corrections_url: new URL(`/corrections/${protocol.id}`, url).toString(),
 								...protocol

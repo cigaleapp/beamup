@@ -3,6 +3,12 @@
 	"plugins": ["unicorn", "typescript", "oxc", "import"],
 	"categories": {},
 	"rules": {
+		"no-console": [
+			"error",
+			{
+				"allow": ["warn", "error", "info", "dir", "time", "timeEnd", "debug"]
+			}
+		],
 		"import/extensions": ["deny", "always"],
 		"for-direction": "warn",
 		"no-async-promise-executor": "warn",
