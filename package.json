@@ -26,7 +26,7 @@
 		"prepare": "bun run init-dotenv.ts && husky",
 		"lint": "oxlint",
 		"format": "prettier --write .",
-		"check:clutter": "knip",
+		"check:clutter": "bunx --bun knip",
 		"migrate": "bun run migrate.ts",
 		"makemigration": "bunx drizzle-kit generate --name",
 		"dev": "bun run --watch src/index.ts",
