@@ -33,10 +33,12 @@ beforeEach(async () => {
 
 	// Run migration using Bun
 	await migrate(testDbFile, { quiet: !process.env.GITHUB_ACTIONS });
+	console.log('Migrated.');
 
 	// Connect to database for assertions
 	db = new Database(testDbFile);
 
+	console.log('Starting web server.');
 	server = await startServer({
 		port: TEST_PORT,
 		dbFileName: testDbFile,
