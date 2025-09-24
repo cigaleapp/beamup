@@ -666,4 +666,105 @@ describe('BeamUp Server Tests', () => {
 		};
 		expect(storedCount.count).toBe(3);
 	});
+
+	describe('correctionsOfProtocol unroll option', () => {
+		test('should handle unroll: false (no unrolling)', async () => {
+			// First send corrections to create test data with multiple pages
+			const corrections = Array.from({ length: 5 }, (_, i) => createTestCorrection(i));
+			await sendCorrections({
+				origin: SERVER_URL,
+				corrections
+			});
+
+			// Test with unroll: false (should only get first page)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'multi-test-protocol-0',
+				unroll: false
+			});
+
+			// Since we're not unrolling, we should get paginated results
+			// The exact number depends on pagination settings, but should be limited
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+		});
+
+		test('should handle unroll: 0 (equivalent to false)', async () => {
+			// First send corrections to create test data
+			const corrections = Array.from({ length: 3 }, (_, i) => createTestCorrection(i + 100));
+			await sendCorrections({
+				origin: SERVER_URL,
+				corrections
+			});
+
+			// Test with unroll: 0 (should be equivalent to false)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'multi-test-protocol-10',
+				unroll: 0
+			});
+
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+		});
+
+		test('should handle unroll: number (limited unrolling)', async () => {
+			// First send corrections to create test data
+			const corrections = Array.from({ length: 3 }, (_, i) => createTestCorrection(i + 200));
+			await sendCorrections({
+				origin: SERVER_URL,
+				corrections
+			});
+
+			// Test with unroll: 1 (should make at most 1 additional request)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'multi-test-protocol-20',
+				unroll: 1
+			});
+
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+			// Should contain all corrections from first page plus potentially more from unrolling
+		});
+
+		test('should handle unroll: true (infinite unrolling)', async () => {
+			// First send corrections to create test data
+			const corrections = Array.from({ length: 3 }, (_, i) => createTestCorrection(i + 300));
+			await sendCorrections({
+				origin: SERVER_URL,
+				corrections
+			});
+
+			// Test with unroll: true (should unroll all pages)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'multi-test-protocol-30',
+				unroll: true
+			});
+
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+			// Should contain all corrections available
+		});
+
+		test('should handle undefined unroll (default behavior)', async () => {
+			// First send corrections to create test data
+			const corrections = Array.from({ length: 2 }, (_, i) => createTestCorrection(i + 400));
+			await sendCorrections({
+				origin: SERVER_URL,
+				corrections
+			});
+
+			// Test with undefined unroll (should use default behavior - no unrolling)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'multi-test-protocol-40'
+				// unroll not specified
+			});
+
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+		});
+	});
 });
