@@ -16,11 +16,9 @@ describe('BeamUp Server Tests', () => {
 		testDbFile = `test-db-${Date.now()}-${Math.random().toString(36).substring(7)}.sqlite3`;
 
 		// Delete existing database file if it exists
-		try {
-			await unlink(testDbFile);
-		} catch (error) {
-			// File doesn't exist, ignore error
-		}
+		await Bun.file(testDbFile)
+			.delete()
+			.catch(() => {});
 
 		// Set up environment for clean database and run migrations
 		process.env.DB_FILE_NAME = testDbFile;
@@ -67,7 +65,7 @@ describe('BeamUp Server Tests', () => {
 						clearTimeout(timeout);
 						resolve(null);
 					}
-				} catch (error) {
+				} catch {
 					// Server not ready yet, try again
 					setTimeout(checkServer, 200);
 				}
