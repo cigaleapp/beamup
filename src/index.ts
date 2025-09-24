@@ -18,7 +18,7 @@ const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
 
 Bun.serve({
 	port,
-	development: !process.env.PROD,
+	development: !Bun.env.PROD,
 	routes: {
 		'/corrections': {
 			async POST(req: Request) {
