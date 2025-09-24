@@ -1,5 +1,10 @@
-import { type Correction, SendCorrectionsRequest, type CorrectionsList } from './tables';
-
+import {
+	type Correction,
+	type CorrectionsList,
+	MAX_CORRECTIONS_PER_REQUEST,
+	SendCorrectionsRequest
+} from './tables';
+import { chunk } from './utils';
 export async function sendCorrections({
 	origin,
 	corrections
@@ -7,14 +12,18 @@ export async function sendCorrections({
 	origin: string;
 	corrections: typeof SendCorrectionsRequest.infer;
 }) {
-	const response = await fetch(origin + '/corrections', {
-		method: 'POST',
-		body: JSON.stringify(SendCorrectionsRequest.assert(corrections))
-	});
+	const chunks = Array.isArray(corrections)
+		? chunk(corrections, MAX_CORRECTIONS_PER_REQUEST)
+		: [corrections];
 
-	if (response.ok) return;
+	for (const chunk of chunks) {
+		const response = await fetch(origin + '/corrections', {
+			method: 'POST',
+			body: JSON.stringify(chunk)
+		});
 
-	throw new Error(response.status + ' ' + (await response.text()));
+		if (!response.ok) throw new Error(response.status + ' ' + (await response.text()));
+	}
 }
 
 export async function correctionsOfProtocol({

@@ -25,6 +25,14 @@ export function uniqueBy<T, K>(arr: T[], keyFn: (item: T) => K): T[] {
 	return result;
 }
 
+export function chunk<T>(arr: T[], size: number): T[][] {
+	const chunks: T[][] = [];
+	for (let i = 0; i < arr.length; i += size) {
+		chunks.push(arr.slice(i, i + size));
+	}
+	return chunks;
+}
+
 export const cli = {
 	important: (str: string | number) => styleText(['bold', 'cyanBright'], str.toString()),
 	bold: (str: string | number) => styleText('bold', str.toString()),
