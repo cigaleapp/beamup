@@ -7,6 +7,7 @@ import {
 	CHUNK_SIZE
 } from '../src/client.js';
 import { SendCorrectionsRequest } from '../src/tables.js';
+import { PaginatedResponseSchema } from '../src/pagination.js';
 
 const TEST_PORT = 3001;
 const SERVER_URL = `http://localhost:${TEST_PORT}`;
@@ -103,8 +104,8 @@ describe('BeamUp Server Tests', () => {
 		expect(response.ok).toBe(true);
 
 		const data = await response.json();
-		expect(Array.isArray(data)).toBe(true);
-		expect(data.length).toBe(0); // Should be empty on fresh database
+		expect(PaginatedResponseSchema('unknown').allows(data)).toBe(true);
+		expect(data.items.length).toBe(0); // Should be empty on fresh database
 	});
 
 	test('server should return 404 for non-existent correction', async () => {
@@ -117,8 +118,8 @@ describe('BeamUp Server Tests', () => {
 		expect(response.ok).toBe(true);
 
 		const data = await response.json();
-		expect(Array.isArray(data)).toBe(true);
-		expect(data.length).toBe(0);
+		expect(PaginatedResponseSchema('unknown').allows(data)).toBe(true);
+		expect(data.items.length).toBe(0);
 	});
 
 	test('database should be clean before each test', async () => {

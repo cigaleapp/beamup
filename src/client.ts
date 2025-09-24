@@ -1,3 +1,5 @@
+import { MAX_CORRECTIONS_PER_REQUEST } from './constants.js';
+import type { PaginatedResponse } from './pagination.js';
 import type {
 	Correction,
 	CorrectionsList,
@@ -5,9 +7,9 @@ import type {
 	SendableCorrection
 } from './tables.js';
 import { chunk } from './utils.js';
-import { MAX_CORRECTIONS_PER_REQUEST } from './constants.js';
 
 export const CHUNK_SIZE = MAX_CORRECTIONS_PER_REQUEST;
+export type { PaginatedResponse } from './pagination.js';
 export type SendableCorrection = typeof SendableCorrection.infer;
 export type SubjectType = typeof SendableCorrection.infer.subject_type;
 
@@ -26,7 +28,7 @@ export async function sendCorrections({
 	let sent = 0;
 
 	for (const [i, chunk] of chunks.entries()) {
-		const response = await fetch(origin + '/corrections', {
+		const response = await fetch(`${origin}/corrections`, {
 			method: 'POST',
 			body: JSON.stringify(chunk)
 		});
@@ -40,22 +42,29 @@ export async function sendCorrections({
 
 export async function correctionsOfProtocol({
 	origin,
-	protocol
+	protocol,
+	unroll
 }: {
 	origin: string;
 	protocol: string;
+	/** Unroll paginated results. true for Infinite unrolling, number to stop after n subsequent requests (unroll: 0 is equivalent to unroll: false) */
+	unroll?: boolean | number;
 }) {
-	const response = await fetch(origin + `/corrections/${protocol}`);
+	const response = await fetch(`${origin}/corrections/${protocol}`);
 
 	if (response.ok) {
-		const results = (await response.json()) as typeof CorrectionsList.infer;
+		const results: typeof CorrectionsList.infer = await unrollPaginatedResponse({
+			response: await response.json(),
+			limit: Number(unroll === true ? Infinity : unroll)
+		});
+
 		return results.map((correction) => ({
 			...correction,
 			details: async () =>
 				correctionDetails({
+					id: correction.id,
 					origin,
-					protocol,
-					id: correction.id
+					protocol
 				})
 		}));
 	}
@@ -72,11 +81,29 @@ export async function correctionDetails({
 	protocol: string;
 	id: string;
 }) {
-	const response = await fetch(origin + `/corrections/${protocol}/${id}`);
+	const response = await fetch(`${origin}/corrections/${protocol}/${id}`);
 
 	if (response.ok) return (await response.json()) as typeof Correction.infer;
 
 	if (response.status === 404) return undefined;
 
 	throw new Error(response.status + ' ' + (await response.text()));
+}
+
+async function unrollPaginatedResponse<T>({
+	response,
+	limit
+}: {
+	response: PaginatedResponse<T>;
+	limit: number;
+}): Promise<T[]> {
+	let requestsCount = 0;
+	let items = response.items;
+	while (response.next_url && requestsCount < limit) {
+		response = await fetch(response.next_url).then((r) => r.json());
+		items = [...items, ...response.items];
+		requestsCount++;
+	}
+
+	return items;
 }

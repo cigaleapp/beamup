@@ -6,6 +6,7 @@ import packageManifest from '../package.json' with { type: 'json' };
 import * as c from './console.js';
 import { CorsedResponse as Response } from './cors.js';
 import { db } from './database.js';
+import { paginated } from './pagination.js';
 import * as tables from './tables.js';
 import {
 	Correction,
@@ -72,26 +73,36 @@ Bun.serve({
 			}
 		},
 		'/corrections/:protocol': {
-			async GET({ params, url }) {
+			GET: paginated(200, async ({ params, url }, { limit, offset }) => {
 				const orderBy = type
 					.enumerated('received_at', 'id', 'done_at')
 					.assert(new URL(url).searchParams.get('order_by') || 'received_at');
 
-				return Response.json(
-					await db
+				return {
+					items: await db
 						.select()
 						.from(corrections)
 						.where(eq(corrections.protocol_id, params.protocol))
 						.orderBy(desc(corrections[orderBy]))
+						.limit(limit)
+						.offset(offset)
 						.then((rows) =>
 							rows.map(({ id, before: _, after: __, ...correction }) => ({
 								id,
 								details_url: new URL(`/corrections/${params.protocol}/${id}`, url).toString(),
 								...correction
 							}))
-						)
-				);
-			}
+						),
+
+					hasNext: await db
+						.select({ _: sql`1` })
+						.from(corrections)
+						.where(eq(corrections.protocol_id, params.protocol))
+						.limit(limit)
+						.offset(offset + limit)
+						.then((r) => r.length > 0)
+				};
+			})
 		},
 		'/corrections/:protocol/:id': {
 			async GET({ params }) {
@@ -136,18 +147,20 @@ Bun.serve({
 			}
 		},
 		'/protocols': {
-			async GET({ url }) {
-				// Otherwise we get a single group with null count when there is no correction at all
+			GET: paginated(50, async ({ url }, { limit, offset }) => {
 				const count = await db.$count(corrections);
-				if (!count) return Response.json([]);
+				if (!count) return { items: [], hasNext: false };
 
-				return Response.json(
-					await db
+				return {
+					hasNext: count > offset + limit,
+					items: await db
 						.select({
 							id: corrections.protocol_id,
 							corrections_count: sql<number>`cast(count(${corrections.protocol_id}) as int)`
 						})
 						.from(corrections)
+						.limit(limit)
+						.offset(offset)
 						.orderBy(corrections.protocol_id)
 						.then((protocols) => {
 							return uniqueBy(protocols, (p) => p.id).map((protocol) => ({
@@ -155,20 +168,25 @@ Bun.serve({
 								...protocol
 							}));
 						})
-				);
-			}
+				};
+			})
 		},
 		'/': {
 			async GET({ url }) {
+				const pagination =
+					'response contains fields next_url (null at end), items (array of results)';
+
 				return Response.json({
 					'This is': 'BeamUp API for CIGALE, https://github.com/cigaleapp/beamup',
 					'List all protocols': {
 						method: 'GET',
+						paginated: pagination,
 						url: url + 'protocols'
 					},
 					'List corrections for a protocol': {
 						method: 'GET',
 						searchParams: { order_by: 'received_at (default), id, done_at' },
+						paginated: pagination,
 						url: url + 'corrections/{protocol}'
 					},
 					'See a specific correction': {
@@ -176,8 +194,8 @@ Bun.serve({
 						url: url + 'corrections/{protocol}/{id}'
 					},
 					'Submit a new correction': {
-						url: url + 'correction',
 						method: 'POST',
+						url: url + 'correction',
 						body: Correction.toJsonSchema()
 					}
 				});
