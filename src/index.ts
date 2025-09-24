@@ -1,8 +1,9 @@
 import { ArkErrors, TraversalError } from 'arktype';
-import packageManifest from '../package.json' with { type: 'json' };
 import { desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
+import packageManifest from '../package.json' with { type: 'json' };
+import * as c from './console';
 import { CorsedResponse as Response } from './cors';
 import { db } from './database';
 import * as tables from './tables';
@@ -13,7 +14,7 @@ import {
 	metadataValues,
 	SendCorrectionsRequest
 } from './tables';
-import { cli, omit, uniqueBy } from './utils';
+import { omit, uniqueBy } from './utils';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
 
@@ -27,7 +28,7 @@ Bun.serve({
 				const corrections = Array.isArray(body) ? body : [body];
 
 				console.log(
-					`Received ${cli.strong(corrections.length.toString().padStart(3, ' '))} corrections from ${cli.em(req.headers.get('origin') || 'unknown')}`
+					`Received ${c.strong(corrections.length.toString().padStart(3, ' '))} corrections from ${c.em(req.headers.get('origin') || 'unknown')}`
 				);
 
 				await db.transaction(async (tx) => {
@@ -215,10 +216,10 @@ Bun.serve({
 
 console.info(
 	`
-BeamUp Server ${cli.strong('v' + packageManifest.version)} · ${cli.em(packageManifest.homepage)}
-Using Bun ${cli.em(Bun.version_with_sha)}
-Accepting requests from ${cli.strong(Bun.env.ALLOWED_ORIGINS || '*')}
-Database ${cli.em(Bun.env.DB_FILE_NAME)} has ${cli.strong(await db.$count(corrections))} corrections
-Listening on ${cli.strong(':' + port)} in ${cli.boolean(Bun.env.PROD, 'development', 'production')} mode
+BeamUp Server ${c.strong('v' + packageManifest.version)} · ${c.em(packageManifest.homepage)}
+Using Bun ${c.em(Bun.version_with_sha)}
+Accepting requests from ${c.strong(Bun.env.ALLOWED_ORIGINS || '*')}
+Database ${c.em(Bun.env.DB_FILE_NAME)} has ${c.strong(await db.$count(corrections))} corrections
+Listening on ${c.strong(':' + port)} in ${c.boolean(Bun.env.PROD, 'development', 'production')} mode
 `
 );

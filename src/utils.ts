@@ -1,5 +1,3 @@
-import { styleText } from 'node:util';
-
 export function omit<T extends Record<string, any>, K extends keyof T>(
 	obj: null | T,
 	...key: K[]
@@ -32,10 +30,3 @@ export function chunk<T>(arr: T[], size: number): T[][] {
 	}
 	return chunks;
 }
-
-export const cli = {
-	strong: (str: string | number) => styleText(['bold', 'cyanBright'], str.toString()),
-	em: (str: string | number) => styleText(['blueBright', 'italic'], str.toString()),
-	boolean: (val: unknown, falseWord = 'false', trueWord = 'true') =>
-		styleText(['bold', val ? 'green' : 'red'], val ? trueWord : falseWord)
-};
