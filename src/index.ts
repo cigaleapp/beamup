@@ -69,7 +69,7 @@ Bun.serve({
 						.select()
 						.from(corrections)
 						.where(eq(corrections.protocol_id, params.protocol))
-						.orderBy(desc(corrections.sent_at))
+						.orderBy(desc(corrections.received_at))
 						.then((rows) =>
 							rows.map(({ id, ...correction }) => ({
 								id,

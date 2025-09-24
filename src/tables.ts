@@ -55,7 +55,7 @@ export const corrections = table('corrections', {
 	comment: text('comment'),
 	user: text('user'),
 	done_at: customTypeFromArk(type('string.date.iso'), 'done_at'),
-	sent_at: customTypeFromArk(type('string.date.iso'), 'sent_at').$default(() =>
+	received_at: customTypeFromArk(type('string.date.iso'), 'received_at').$default(() =>
 		new Date().toISOString()
 	)
 });
