@@ -1,6 +1,6 @@
 {
 	"name": "@cigale/beamup",
-	"version": "0.2.2",
+	"version": "0.3.0",
 	"description": "Typed client to send corrections to a CIGALE BeamUp server",
 	"license": "MIT",
 	"repository": {
