@@ -78,7 +78,7 @@ Bun.serve({
 						.where(eq(corrections.protocol_id, params.protocol))
 						.orderBy(desc(corrections.received_at))
 						.then((rows) =>
-							rows.map(({ id, ...correction }) => ({
+							rows.map(({ id, before: _, after: __, ...correction }) => ({
 								id,
 								details_url: new URL(`/corrections/${params.protocol}/${id}`, url).toString(),
 								...correction
