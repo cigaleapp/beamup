@@ -18,6 +18,7 @@ COPY --from=install /temp/dev/node_modules node_modules
 COPY src src
 COPY drizzle drizzle
 COPY migrate.ts .
+COPY package.json .
 
 # set labels
 ARG description
