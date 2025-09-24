@@ -1,11 +1,16 @@
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
-
 import { Database } from 'bun:sqlite';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
+import * as migrator from 'drizzle-orm/bun-sqlite/migrator';
 import * as c from './src/console.js';
 
-console.info(`Running with database ${c.strong(Bun.env.DB_FILE_NAME)}`);
+export async function migrate(dbFile: string, { quiet = false } = {}) {
+	if (!quiet) console.info(`Migrating ${c.strong(dbFile)}`);
 
-const sqlite = new Database(Bun.env.DB_FILE_NAME);
-const db = drizzle(sqlite);
-migrate(db, { migrationsFolder: './drizzle' });
+	const sqlite = new Database(dbFile);
+	const db = drizzle(sqlite);
+	migrator.migrate(db, { migrationsFolder: './drizzle' });
+}
+
+if (import.meta.main) {
+	await migrate(Bun.env.DB_FILE_NAME);
+}

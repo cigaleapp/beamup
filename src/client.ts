@@ -55,7 +55,7 @@ export async function correctionsOfProtocol({
 	if (response.ok) {
 		const results: typeof CorrectionsList.infer = await unrollPaginatedResponse({
 			response: await response.json(),
-			limit: Number(unroll === true ? Infinity : unroll)
+			limit: unroll === true ? Infinity : Number(unroll)
 		});
 
 		return results.map((correction) => ({
@@ -99,6 +99,7 @@ async function unrollPaginatedResponse<T>({
 }): Promise<T[]> {
 	let requestsCount = 0;
 	let items = response.items;
+
 	while (response.next_url && requestsCount < limit) {
 		response = await fetch(response.next_url).then((r) => r.json());
 		items = [...items, ...response.items];

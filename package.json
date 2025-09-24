@@ -29,6 +29,7 @@
 		"check:clutter": "bunx --bun knip",
 		"migrate": "bun run migrate.ts",
 		"makemigration": "bunx drizzle-kit generate --name",
+		"fill": "bun run fill.ts",
 		"dev": "bun run --watch src/index.ts",
 		"test": "bun test",
 		"test:watch": "bun test --watch",
