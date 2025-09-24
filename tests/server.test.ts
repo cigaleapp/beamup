@@ -226,7 +226,7 @@ describe('BeamUp Server Tests', () => {
 		expect(
 			sendCorrections({ origin: SERVER_URL, corrections: testCorrection as any })
 		).rejects.toThrowErrorMatchingInlineSnapshot(
-			`"400 {"validation_issues":[{"path":["metadata"],"message":"metadata must be a string (was missing)","actual":"missing","expected":"a string"}]}"`
+			`"400 {"validation_issues":[{"path":[],"message":"after must be an object (was missing) or [0].metadata must be a string (was missing)","actual":"[{\\"origin\\":\\"http://localhost:3001\\",\\"client_name\\":\\"test-client\\",\\"client_version\\":\\"1.3.12\\",\\"subject\\":\\"test-subject\\",\\"subject_content_hash\\":\\"abc123\\",\\"subject_type\\":\\"image\\",\\"protocol_id\\":\\"test-protocol\\",\\"protocol_version\\":\\"1.0.0\\",\\"before\\":{\\"value\\":\\"before-value\\",\\"type\\":\\"string\\",\\"alternatives\\":[{\\"value\\":\\"alt-value\\",\\"confidence\\":0.8}]},\\"after\\":{\\"value\\":\\"after-value\\",\\"type\\":\\"string\\",\\"alternatives\\":[]},\\"comment\\":\\"Test correction\\",\\"user\\":\\"test-user\\",\\"done_at\\":\\"2025-09-24T08:54:44.627Z\\"}]","expected":"after must be an object (was missing) or [0].metadata must be a string (was missing)"}]}"`
 		);
 	});
 
