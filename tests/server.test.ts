@@ -90,7 +90,7 @@ describe('BeamUp Server Tests', () => {
 		db?.close();
 
 		// Clean up test database
-		await unlink(testDbFile).catch(console.warn);
+		await Bun.file(testDbFile).delete().catch(console.warn);
 	});
 
 	test('server should start and respond to /protocols endpoint', async () => {
