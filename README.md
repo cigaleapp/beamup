@@ -7,11 +7,11 @@ Send corrections to a CIGALE BeamUp server.
 ### Usage
 
 ```ts
-import { sendCorrection } from "@cigale/beamup";
+import { sendCorrections } from "@cigale/beamup";
 
-await sendCorrection({
+await sendCorrections({
     origin: "https://beamup.example.com",
-    ...
+    corrections: [ ... ]
 })
 ```
 
