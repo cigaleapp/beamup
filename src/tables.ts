@@ -73,8 +73,9 @@ export const Correction = createSelectSchema(corrections, {
 
 export const MAX_CORRECTIONS_PER_REQUEST = 100;
 
-export const SendCorrectionsRequest = Correction.omit('received_at').or(
-	Correction.omit('received_at').array().atMostLength(MAX_CORRECTIONS_PER_REQUEST)
+export const SendableCorrection = Correction.omit('received_at');
+export const SendCorrectionsRequest = SendableCorrection.or(
+	SendableCorrection.array().atMostLength(MAX_CORRECTIONS_PER_REQUEST)
 );
 
 export const CorrectionsList = createSelectSchema(corrections)

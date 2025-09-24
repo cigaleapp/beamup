@@ -2,9 +2,14 @@ import {
 	type Correction,
 	type CorrectionsList,
 	MAX_CORRECTIONS_PER_REQUEST,
-	SendCorrectionsRequest
+	SendCorrectionsRequest,
+	SendableCorrection
 } from './tables';
 import { chunk } from './utils';
+
+export { SendableCorrection, SendCorrectionsRequest };
+export type SubjectType = typeof SendableCorrection.infer.subject_type;
+
 export async function sendCorrections({
 	origin,
 	corrections
