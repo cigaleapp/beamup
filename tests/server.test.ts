@@ -1,7 +1,8 @@
 import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { unlink } from 'fs/promises';
-import { correctionDetails, correctionsOfProtocol, sendCorrection } from '../src/client';
+import { correctionDetails, correctionsOfProtocol, sendCorrections } from '../src/client';
+import { SendCorrectionsRequest } from '../src/tables';
 
 const TEST_PORT = 3001;
 const SERVER_URL = `http://localhost:${TEST_PORT}`;
@@ -131,7 +132,7 @@ describe('BeamUp Server Tests', () => {
 		expect(metadataRows.count).toBe(0);
 	});
 
-	test('sendCorrection should successfully send a correction to the server', async () => {
+	test('sendCorrections should successfully send a correction to the server', async () => {
 		const testCorrection = {
 			origin: SERVER_URL,
 			client_name: 'test-client',
@@ -164,7 +165,9 @@ describe('BeamUp Server Tests', () => {
 		};
 
 		// This should succeed (all required fields provided)
-		await expect(sendCorrection(testCorrection)).resolves.toBeUndefined();
+		await expect(
+			sendCorrections({ origin: SERVER_URL, corrections: testCorrection })
+		).resolves.toBeUndefined();
 
 		// Verify that correction was stored in database using plain SQL
 		const storedCorrections = db.query('SELECT COUNT(*) as count FROM corrections').get() as {
@@ -189,8 +192,8 @@ describe('BeamUp Server Tests', () => {
 		expect(metadataCount.count).toBe(2); // before and after values
 	});
 
-	test('sendCorrection should handle validation errors (known server issue)', async () => {
-		const testCorrection: Omit<Parameters<typeof sendCorrection>[0], 'metadata'> = {
+	test('sendCorrections should handle validation errors (known server issue)', async () => {
+		const testCorrection: Omit<typeof SendCorrectionsRequest.infer, 'metadata'> = {
 			origin: SERVER_URL,
 			client_name: 'test-client',
 			client_version: '1.3.12',
@@ -216,14 +219,13 @@ describe('BeamUp Server Tests', () => {
 			},
 			comment: 'Test correction',
 			user: 'test-user',
-			done_at: new Date().toISOString(),
-			sent_at: new Date().toISOString()
+			done_at: new Date().toISOString()
 		};
 
-		// Due to a known arktype validation bug in the server, sendCorrection currently throws
 		// This test verifies that the client function is called and receives the expected server error
-		// @ts-expect-error
-		expect(sendCorrection(testCorrection)).rejects.toThrowErrorMatchingInlineSnapshot(
+		expect(
+			sendCorrections({ origin: SERVER_URL, corrections: testCorrection as any })
+		).rejects.toThrowErrorMatchingInlineSnapshot(
 			`"400 {"validation_issues":[{"path":["metadata"],"message":"metadata must be a string (was missing)","actual":"missing","expected":"a string"}]}"`
 		);
 	});
@@ -231,7 +233,6 @@ describe('BeamUp Server Tests', () => {
 	test('correctionsOfProtocol should return corrections when data exists', async () => {
 		// First send a correction
 		const testCorrection = {
-			origin: SERVER_URL,
 			client_name: 'test-client-filled',
 			client_version: '2.0.0',
 			protocol_id: 'test-protocol-with-data',
@@ -252,11 +253,13 @@ describe('BeamUp Server Tests', () => {
 			},
 			comment: 'Test correction with data',
 			user: 'test-user-filled',
-			done_at: new Date().toISOString(),
-			sent_at: new Date().toISOString()
+			done_at: new Date().toISOString()
 		};
 
-		await sendCorrection(testCorrection);
+		await sendCorrections({
+			origin: SERVER_URL,
+			corrections: testCorrection
+		});
 
 		// Now test the client function
 		const protocolCorrections = await correctionsOfProtocol({
@@ -273,7 +276,6 @@ describe('BeamUp Server Tests', () => {
 			metadata: 'test-metadata-filled',
 			protocol_id: 'test-protocol-with-data',
 			protocol_version: '2.0.0',
-			sent_at: testCorrection.sent_at,
 			subject: 'test-subject-filled',
 			subject_content_hash: 'def456',
 			subject_type: 'image',
@@ -300,7 +302,6 @@ describe('BeamUp Server Tests', () => {
 			metadata: 'test-metadata-filled',
 			protocol_id: 'test-protocol-with-data',
 			protocol_version: '2.0.0',
-			sent_at: testCorrection.sent_at,
 			subject: 'test-subject-filled',
 			subject_content_hash: 'def456',
 			subject_type: 'image',
@@ -308,7 +309,7 @@ describe('BeamUp Server Tests', () => {
 		});
 	});
 
-	test('correctionsOfProtocol should return empty list (sendCorrection blocked by server validation)', async () => {
+	test('correctionsOfProtocol should return empty list (sendCorrections blocked by server validation)', async () => {
 		// Due to the server validation issue, we cannot successfully send corrections
 		// This test verifies that correctionsOfProtocol works when no data exists
 		const protocolCorrections = await correctionsOfProtocol({
@@ -322,7 +323,6 @@ describe('BeamUp Server Tests', () => {
 	test('correctionDetails should return full correction details when data exists', async () => {
 		// Send a correction first
 		const testCorrection = {
-			origin: SERVER_URL,
 			client_name: 'detail-client',
 			client_version: '3.0.0',
 			protocol_id: 'detail-protocol-filled',
@@ -353,11 +353,13 @@ describe('BeamUp Server Tests', () => {
 			},
 			comment: 'Detailed correction with data',
 			user: 'detail-user-filled',
-			done_at: new Date().toISOString(),
-			sent_at: new Date().toISOString()
+			done_at: new Date().toISOString()
 		};
 
-		await sendCorrection(testCorrection);
+		await sendCorrections({
+			origin: SERVER_URL,
+			corrections: testCorrection
+		});
 
 		// Get the correction ID from database
 		const correction = db.query('SELECT id FROM corrections LIMIT 1').get() as { id: string };
@@ -394,7 +396,6 @@ describe('BeamUp Server Tests', () => {
 			metadata: 'detail-metadata-filled',
 			protocol_id: 'detail-protocol-filled',
 			protocol_version: '3.0.0',
-			sent_at: testCorrection.sent_at,
 			subject: 'detail-subject-filled',
 			subject_content_hash: 'ghi789',
 			subject_type: 'other',
