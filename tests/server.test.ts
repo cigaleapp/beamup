@@ -1,8 +1,7 @@
 import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { unlink } from 'fs/promises';
-import { correctionDetails, correctionsOfProtocol, sendCorrections } from '../src/client';
-import { SendCorrectionsRequest } from '../src/tables';
+import { correctionDetails, correctionsOfProtocol, sendCorrections } from '../src/client.js';
+import { SendCorrectionsRequest } from '../src/tables.js';
 
 const TEST_PORT = 3001;
 const SERVER_URL = `http://localhost:${TEST_PORT}`;

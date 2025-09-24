@@ -3,18 +3,18 @@ import { desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import packageManifest from '../package.json' with { type: 'json' };
-import * as c from './console';
-import { CorsedResponse as Response } from './cors';
-import { db } from './database';
-import * as tables from './tables';
+import * as c from './console.js';
+import { CorsedResponse as Response } from './cors.js';
+import { db } from './database.js';
+import * as tables from './tables.js';
 import {
 	Correction,
 	corrections,
 	metadataAlts,
 	metadataValues,
 	SendCorrectionsRequest
-} from './tables';
-import { omit, uniqueBy } from './utils';
+} from './tables.js';
+import { omit, uniqueBy } from './utils.js';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
 

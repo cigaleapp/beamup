@@ -5,7 +5,7 @@ import {
 	SendCorrectionsRequest,
 	SendableCorrection
 } from './tables';
-import { chunk } from './utils';
+import { chunk } from './utils.js';
 
 export { SendableCorrection, SendCorrectionsRequest };
 export const CHUNK_SIZE = MAX_CORRECTIONS_PER_REQUEST;
