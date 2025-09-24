@@ -3,6 +3,7 @@
 	"version": "0.3.0",
 	"description": "Typed client to send corrections to a CIGALE BeamUp server",
 	"license": "MIT",
+	"homepage": "https://github.com/cigaleapp/beamup",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/cigaleapp/beamup"

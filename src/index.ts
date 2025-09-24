@@ -1,4 +1,5 @@
 import { ArkErrors, TraversalError } from 'arktype';
+import packageManifest from '../package.json' with { type: 'json' };
 import { desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
@@ -212,8 +213,12 @@ Bun.serve({
 	}
 });
 
-console.info(`Server running on ${cli.strong(`http://localhost:${port}/`)}`);
-console.info(`Accepting requests from ${cli.strong(Bun.env.ALLOWED_ORIGINS || '*')}`);
 console.info(
-	`Using database ${cli.em(Bun.env.DB_FILE_NAME)} with ${cli.strong(await db.$count(corrections))} corrections`
+	`
+BeamUp Server ${cli.strong('v' + packageManifest.version)} · ${cli.em(packageManifest.homepage)}
+Using Bun ${cli.em(Bun.version_with_sha)}
+Accepting requests from ${cli.strong(Bun.env.ALLOWED_ORIGINS || '*')}
+Database ${cli.em(Bun.env.DB_FILE_NAME)} has ${cli.strong(await db.$count(corrections))} corrections
+Listening on ${cli.strong(':' + port)} in ${cli.boolean(Bun.env.PROD, 'development', 'production')} mode
+`
 );
