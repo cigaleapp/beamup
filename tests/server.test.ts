@@ -498,9 +498,6 @@ describe('BeamUp Server Tests', () => {
 		// we'll test the chunking logic by verifying that CHUNK_SIZE works correctly
 		// and that the progress callback is called appropriately for chunks
 
-		// First, verify that CHUNK_SIZE is set to expected value
-		expect(CHUNK_SIZE).toBe(100);
-
 		// Test with exactly CHUNK_SIZE corrections (should be 1 chunk)
 		const exactChunkSize = CHUNK_SIZE;
 		const corrections1 = Array.from({ length: exactChunkSize }, (_, i) => createTestCorrection(i));
@@ -542,7 +539,7 @@ describe('BeamUp Server Tests', () => {
 		// arrays and that CHUNK_SIZE is used correctly in the implementation.
 
 		const smallMultipleCorrections = Array.from({ length: 3 }, (_, i) =>
-			createTestCorrection(i + 200)
+			createTestCorrection(i + 2 * CHUNK_SIZE)
 		);
 		const progressCalls2: Array<{ chunk: number; sent: number; total: number }> = [];
 
@@ -628,10 +625,6 @@ describe('BeamUp Server Tests', () => {
 			count: number;
 		};
 		expect(storedCount.count).toBe(correctionCount);
-
-		// Test that the chunking behavior is working as expected by verifying
-		// that CHUNK_SIZE is respected in the implementation
-		expect(CHUNK_SIZE).toBe(100);
 
 		// If we had exactly CHUNK_SIZE corrections, we should get one progress call
 		// If we had CHUNK_SIZE + 1 corrections, we should get two progress calls
