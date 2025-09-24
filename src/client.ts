@@ -8,6 +8,7 @@ import {
 import { chunk } from './utils';
 
 export { SendableCorrection, SendCorrectionsRequest };
+export type SendableCorrection = typeof SendableCorrection.infer;
 export type SubjectType = typeof SendableCorrection.infer.subject_type;
 
 export async function sendCorrections({
