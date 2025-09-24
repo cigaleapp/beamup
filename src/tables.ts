@@ -6,6 +6,7 @@ import {
 	sqliteTable as table,
 	text
 } from 'drizzle-orm/sqlite-core';
+import { MAX_CORRECTIONS_PER_REQUEST } from './constants.js';
 
 export const MetadataType = type.enumerated(
 	'string',
@@ -70,8 +71,6 @@ export const Correction = createSelectSchema(corrections, {
 	before: MetadataValue,
 	after: MetadataValue
 }).omit('id');
-
-export const MAX_CORRECTIONS_PER_REQUEST = 100;
 
 export const SendableCorrection = Correction.omit('received_at');
 export const SendCorrectionsRequest = SendableCorrection.or(

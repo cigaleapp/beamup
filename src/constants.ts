@@ -1,0 +1,1 @@
+export const MAX_CORRECTIONS_PER_REQUEST = 100;

@@ -1,13 +1,12 @@
-import {
-	type Correction,
-	type CorrectionsList,
-	MAX_CORRECTIONS_PER_REQUEST,
+import type {
+	Correction,
+	CorrectionsList,
 	SendCorrectionsRequest,
 	SendableCorrection
-} from './tables';
+} from './tables.js';
 import { chunk } from './utils.js';
+import { MAX_CORRECTIONS_PER_REQUEST } from './constants.js';
 
-export { SendableCorrection, SendCorrectionsRequest };
 export const CHUNK_SIZE = MAX_CORRECTIONS_PER_REQUEST;
 export type SendableCorrection = typeof SendableCorrection.infer;
 export type SubjectType = typeof SendableCorrection.infer.subject_type;
