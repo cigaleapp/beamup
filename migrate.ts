@@ -1,9 +1,10 @@
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 
-import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { Database } from 'bun:sqlite';
+import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { cli } from './src/utils';
 
-console.info(`Running with database ${Bun.env.DB_FILE_NAME}`);
+console.info(`Running with database ${cli.strong(Bun.env.DB_FILE_NAME)}`);
 
 const sqlite = new Database(Bun.env.DB_FILE_NAME);
 const db = drizzle(sqlite);

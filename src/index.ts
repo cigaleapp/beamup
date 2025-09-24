@@ -26,7 +26,7 @@ Bun.serve({
 				const corrections = Array.isArray(body) ? body : [body];
 
 				console.log(
-					`Received ${corrections.length.toString().padStart(3, ' ')} corrections from ${req.headers.get('origin') || 'unknown'}`
+					`Received ${cli.strong(corrections.length.toString().padStart(3, ' '))} corrections from ${cli.em(req.headers.get('origin') || 'unknown')}`
 				);
 
 				await db.transaction(async (tx) => {
@@ -212,6 +212,8 @@ Bun.serve({
 	}
 });
 
-console.info(`Server running on ${cli.important(`http://localhost:${port}/`)}`);
-console.info(`Accepting requests from ${cli.important(process.env.ALLOWED_ORIGINS || '*')}`);
-console.info(`Database has ${cli.important(await db.$count(corrections))} corrections stored`);
+console.info(`Server running on ${cli.strong(`http://localhost:${port}/`)}`);
+console.info(`Accepting requests from ${cli.strong(Bun.env.ALLOWED_ORIGINS || '*')}`);
+console.info(
+	`Using database ${cli.em(Bun.env.DB_FILE_NAME)} with ${cli.strong(await db.$count(corrections))} corrections`
+);

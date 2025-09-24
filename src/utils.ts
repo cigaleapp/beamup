@@ -34,7 +34,6 @@ export function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 export const cli = {
-	important: (str: string | number) => styleText(['bold', 'cyanBright'], str.toString()),
-	bold: (str: string | number) => styleText('bold', str.toString()),
-	cyan: (str: string | number) => styleText('cyanBright', str.toString())
+	strong: (str: string | number) => styleText(['bold', 'cyanBright'], str.toString()),
+	em: (str: string | number) => styleText(['blueBright', 'italic'], str.toString())
 };
