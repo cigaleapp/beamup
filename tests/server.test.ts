@@ -1,104 +1,92 @@
 import { Database } from 'bun:sqlite';
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
+	CHUNK_SIZE,
 	correctionDetails,
 	correctionsOfProtocol,
-	sendCorrections,
-	CHUNK_SIZE
+	sendCorrections
 } from '../src/client.js';
-import { SendCorrectionsRequest } from '../src/tables.js';
 import { PaginatedResponseSchema } from '../src/pagination.js';
+import { SendCorrectionsRequest } from '../src/tables.js';
+import { migrate } from '../migrate.js';
+import { startServer } from '../src/index.js';
+import { nanoid } from 'nanoid';
 
 const TEST_PORT = 3001;
-const SERVER_URL = `http://localhost:${TEST_PORT}`;
+const SERVER_URL = `http://127.0.0.1:${TEST_PORT}`;
+
+let server: Bun.Server;
+let db: Database;
+let testDbFile: string;
+
+beforeEach(async () => {
+	// Use unique database name for each test
+	testDbFile = `test-db-${Date.now()}-${Math.random().toString(36).substring(7)}.sqlite3`;
+
+	// Delete existing database file if it exists
+	await Bun.file(testDbFile)
+		.delete()
+		.catch(() => {});
+
+	// Set up environment for clean database and run migrations
+	process.env.DB_FILE_NAME = testDbFile;
+
+	// Run migration using Bun
+	await migrate(testDbFile, { quiet: !process.env.GITHUB_ACTIONS });
+	console.log('Migrated.');
+
+	// Connect to database for assertions
+	db = new Database(testDbFile);
+
+	console.log('Starting web server.');
+	server = await startServer({
+		port: TEST_PORT,
+		dbFileName: testDbFile,
+		development: false,
+		quiet: !process.env.GITHUB_ACTIONS
+	});
+
+	// // Wait for server to start
+	// await new Promise((resolve, reject) => {
+	// 	const timeout = setTimeout(() => {
+	// 		reject(new Error('Server failed to start within timeout'));
+	// 	}, 60_000);
+
+	// 	const checkServer = async () => {
+	// 		try {
+	// 			const response = await fetch(`${SERVER_URL}/protocols`);
+	// 			if (response.ok || response.status === 404) {
+	// 				clearTimeout(timeout);
+	// 				resolve(null);
+	// 			}
+	// 		} catch {
+	// 			// Server not ready yet, try again
+	// 			setTimeout(checkServer, 200);
+	// 		}
+	// 	};
+
+	// 	setTimeout(checkServer, 500); // Wait a bit before first check
+	// });
+});
+
+afterEach(async () => {
+	// Stop the server process
+	await server?.stop();
+
+	// Close database connection
+	db?.close();
+
+	// Clean up test database
+	await Bun.file(testDbFile).delete().catch(console.warn);
+});
+
+afterAll(async () => {
+	for await (const file of new Bun.Glob('test-db-*.{sqlite3,sqlite3-journal}').scan()) {
+		await Bun.file(file).delete().catch(console.warn);
+	}
+});
 
 describe('BeamUp Server Tests', () => {
-	let serverProcess: Bun.Subprocess;
-	let db: Database;
-	let testDbFile: string;
-
-	beforeEach(async () => {
-		// Use unique database name for each test
-		testDbFile = `test-db-${Date.now()}-${Math.random().toString(36).substring(7)}.sqlite3`;
-
-		// Delete existing database file if it exists
-		await Bun.file(testDbFile)
-			.delete()
-			.catch(() => {});
-
-		// Set up environment for clean database and run migrations
-		process.env.DB_FILE_NAME = testDbFile;
-
-		// Run migration using Bun
-		const migrationProcess = Bun.spawnSync(['bun', 'run', 'migrate.ts'], {
-			cwd: process.cwd(),
-			env: {
-				...process.env,
-				DB_FILE_NAME: testDbFile,
-				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`
-			},
-			stdout: 'pipe'
-		});
-
-		if (migrationProcess.exitCode !== 0) {
-			throw new Error(`Migration failed: ${migrationProcess.stderr.toString('utf-8')}`);
-		}
-
-		// Connect to database for assertions
-		db = new Database(testDbFile);
-
-		// Start the server as a separate process using bun
-		serverProcess = Bun.spawn(['bun', 'run', 'src/index.ts', TEST_PORT.toString()], {
-			cwd: process.cwd(),
-			env: {
-				...process.env,
-				DB_FILE_NAME: testDbFile,
-				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`
-			},
-			stdout: 'pipe'
-		});
-
-		// Wait for server to start
-		await new Promise((resolve, reject) => {
-			const timeout = setTimeout(() => {
-				reject(new Error('Server failed to start within timeout'));
-			}, 10000);
-
-			const checkServer = async () => {
-				try {
-					const response = await fetch(`${SERVER_URL}/protocols`);
-					if (response.ok || response.status === 404) {
-						clearTimeout(timeout);
-						resolve(null);
-					}
-				} catch {
-					// Server not ready yet, try again
-					setTimeout(checkServer, 200);
-				}
-			};
-
-			setTimeout(checkServer, 2000); // Wait a bit before first check
-		});
-	});
-
-	afterEach(async () => {
-		// Stop the server process
-		if (serverProcess) {
-			serverProcess.kill();
-			// Wait for process to die
-			await new Promise((resolve) => {
-				serverProcess.exited.then(resolve);
-				setTimeout(resolve, 2000); // Fallback timeout
-			});
-		}
-
-		// Close database connection
-		db?.close();
-
-		// Clean up test database
-		await Bun.file(testDbFile).delete().catch(console.warn);
-	});
-
 	test('server should start and respond to /protocols endpoint', async () => {
 		const response = await fetch(`${SERVER_URL}/protocols`);
 		expect(response.ok).toBe(true);
@@ -436,11 +424,11 @@ describe('BeamUp Server Tests', () => {
 	});
 
 	// Helper function to create test corrections
-	function createTestCorrection(index: number) {
+	function createTestCorrection(index: number, protocolId?: string) {
 		return {
 			client_name: `test-client-${index}`,
 			client_version: '1.0.0',
-			protocol_id: `multi-test-protocol-${Math.floor(index / 10)}`, // Group corrections by protocol
+			protocol_id: protocolId || `multi-test-protocol-${Math.floor(index / 10)}`, // Group corrections by protocol
 			protocol_version: '1.0.0',
 			subject: `test-subject-${index}`,
 			subject_content_hash: `hash-${index}`,
@@ -665,5 +653,142 @@ describe('BeamUp Server Tests', () => {
 			count: number;
 		};
 		expect(storedCount.count).toBe(3);
+	});
+
+	describe('correctionsOfProtocol unroll option', () => {
+		// FIXME nested beforeEach dont seem to work with bun:test ?
+		const setup = async (pages: number) => {
+			const corrections = [
+				...Array.from({ length: pages * 200 }, (_, i) => createTestCorrection(i, 'six seven')),
+				...Array.from({ length: 50 }, (_, i) => createTestCorrection(i, 'unrelated'))
+			];
+
+			const insertMetadataValue = db.prepare(`
+				INSERT INTO metadata_values (id, value, type)
+				VALUES (?1, ?2, ?3)
+			`);
+			const insertCorrection = db.prepare(`
+				INSERT INTO corrections (
+					client_name, client_version, protocol_id, protocol_version,
+					subject, subject_content_hash, subject_type, metadata,
+					before_id, after_id,
+					comment, user, done_at, received_at,
+					id
+				) VALUES (
+					?1, ?2, ?3, ?4,
+					?5, ?6, ?7, ?8,
+					?9, ?10,
+					?11, ?12, ?13, ?14,
+					?15
+				)
+			`);
+			const txn = db.transaction(() => {
+				db.query('DELETE FROM corrections').run();
+
+				for (const correction of corrections) {
+					const beforeId = nanoid();
+					const afterId = nanoid();
+
+					insertMetadataValue.run([beforeId, correction.before.value, correction.before.type]);
+					insertMetadataValue.run([afterId, correction.after.value, correction.after.type]);
+					insertCorrection.run([
+						correction.client_name,
+						correction.client_version,
+						correction.protocol_id,
+						correction.protocol_version,
+						correction.subject,
+						correction.subject_content_hash,
+						correction.subject_type,
+						correction.metadata,
+						beforeId,
+						afterId,
+						correction.comment,
+						correction.user,
+						correction.done_at,
+						new Date().toISOString(),
+						nanoid()
+					]);
+				}
+			});
+
+			txn();
+		};
+
+		test('should handle unroll: false (no unrolling)', async () => {
+			await setup(2);
+
+			// Test with unroll: false (should only get first page)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'six seven',
+				unroll: false
+			});
+
+			// Since we're not unrolling, we should get paginated results
+			// The exact number depends on pagination settings, but should be limited
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+			expect(result).toHaveLength(200);
+		});
+
+		test('should handle unroll: 0 (equivalent to false)', async () => {
+			await setup(2);
+
+			// Test with unroll: 0 (should be equivalent to false)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'six seven',
+				unroll: 0
+			});
+
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+			expect(result).toHaveLength(200);
+		});
+
+		test('should handle unroll: number (limited unrolling)', async () => {
+			await setup(3);
+
+			// Test with unroll: 1 (should make at most 1 additional request)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'six seven',
+				unroll: 1
+			});
+
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+			expect(result).toHaveLength(400); // 200 from first page + 200 from one additional page
+		});
+
+		test('should handle unroll: true (infinite unrolling)', async () => {
+			await setup(3.5);
+
+			// Test with unroll: true (should unroll all pages)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'six seven',
+				unroll: true
+			});
+
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+			expect(result).toHaveLength(700); // All corrections for this protocol
+		});
+
+		test('should handle undefined unroll (default behavior)', async () => {
+			await setup(2);
+
+			// Test with undefined unroll (should use default behavior - no unrolling)
+			const result = await correctionsOfProtocol({
+				origin: SERVER_URL,
+				protocol: 'six seven'
+				// unroll not specified
+			});
+
+			expect(result).toBeDefined();
+			expect(Array.isArray(result)).toBe(true);
+			expect(result).toHaveLength(200); // Default page size
+		});
 	});
 });
