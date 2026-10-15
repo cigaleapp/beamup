@@ -1,6 +1,6 @@
 import { createSelectSchema } from 'drizzle-arktype';
-import { MAX_CORRECTIONS_PER_REQUEST } from './constants';
-import { metadataValues, metadataAlts, corrections } from './tables';
+import { MAX_CORRECTIONS_PER_REQUEST } from './constants.js';
+import { metadataValues, metadataAlts, corrections } from './tables.js';
 
 export const MetadataValue = createSelectSchema(metadataValues)
 	.omit('id')
