@@ -1,22 +1,17 @@
 import { ArkErrors, TraversalError, type } from 'arktype';
-import { and, desc, eq, inArray, notInArray, isNotNull, sql } from 'drizzle-orm';
-import { alias, SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import packageManifest from '../package.json' with { type: 'json' };
 import * as c from './console.js';
 import { CorsedResponse as Response } from './cors.js';
 import { db } from './database.js';
-import { paginated } from './pagination.js';
-import * as tables from './tables.js';
-import {
-	Correction,
-	corrections,
-	metadataAlts,
-	metadataValues,
-	SendCorrectionsRequest
-} from './tables.js';
-import { omit } from './utils.js';
 import { filterByQuery } from './filters';
+import { paginated } from './pagination.js';
+import { Correction, SendCorrectionsRequest } from './schemas.js';
+import * as tables from './tables.js';
+import { corrections, metadataAlts, metadataValues } from './tables.js';
+import { omit } from './utils.js';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
 
