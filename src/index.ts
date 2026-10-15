@@ -76,7 +76,8 @@ Bun.serve({
 			GET: paginated(200, async ({ params, url }, { limit, offset }) => {
 				const query = new URL(url).searchParams;
 				const filters = {
-					metadata: query.get('metadata')?.split(',')
+					metadata: query.get('metadata')?.split(','),
+					user: query.get('user')?.split(',')
 				};
 
 				const orderBy = type
@@ -90,7 +91,8 @@ Bun.serve({
 						.where(
 							and(
 								eq(corrections.protocol_id, params.protocol),
-								filters.metadata ? inArray(corrections.metadata, filters.metadata) : undefined
+								filters.metadata ? inArray(corrections.metadata, filters.metadata) : undefined,
+								filters.user ? inArray(corrections.user, filters.user) : undefined
 							)
 						)
 						.orderBy(desc(corrections[orderBy]))
@@ -119,13 +121,33 @@ Bun.serve({
 				const data = await db
 					.selectDistinct({ metadata: corrections.metadata })
 					.from(corrections)
-					.where(eq(corrections.protocol_id, params.protocol));
+					.where(
+						and(isNotNull(corrections.metadata), eq(corrections.protocol_id, params.protocol))
+					);
 
 				return Response.json(
 					data.map((row) => ({
 						metadata: row.metadata,
 						corrections_url: new URL(
 							`/corrections/${params.protocol}?metadata=${encodeURIComponent(row.metadata)}`,
+							url
+						).toString()
+					}))
+				);
+			}
+		},
+		'/corrections/:protocol/users': {
+			async GET({ params, url }) {
+				const data = await db
+					.selectDistinct({ user: corrections.user })
+					.from(corrections)
+					.where(and(isNotNull(corrections.user), eq(corrections.protocol_id, params.protocol)));
+
+				return Response.json(
+					data.map((row) => ({
+						user: row.user,
+						corrections_url: new URL(
+							`/corrections/${params.protocol}?user=${encodeURIComponent(row.user!)}`,
 							url
 						).toString()
 					}))
