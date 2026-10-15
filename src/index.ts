@@ -1,6 +1,6 @@
 import { ArkErrors, TraversalError, type } from 'arktype';
-import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/sqlite-core';
+import { and, desc, eq, inArray, notInArray, isNotNull, sql } from 'drizzle-orm';
+import { alias, SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import packageManifest from '../package.json' with { type: 'json' };
 import * as c from './console.js';
@@ -16,6 +16,7 @@ import {
 	SendCorrectionsRequest
 } from './tables.js';
 import { omit } from './utils.js';
+import { filterByQuery } from './filters';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
 
@@ -74,12 +75,6 @@ Bun.serve({
 		},
 		'/corrections/:protocol': {
 			GET: paginated(200, async ({ params, url }, { limit, offset }) => {
-				const query = new URL(url).searchParams;
-				const filters = {
-					metadata: query.get('metadata')?.split(','),
-					user: query.get('user')?.split(',')
-				};
-
 				const orderBy = type
 					.enumerated('received_at', 'id', 'done_at')
 					.assert(new URL(url).searchParams.get('order_by') || 'received_at');
@@ -95,8 +90,8 @@ Bun.serve({
 						.where(
 							and(
 								eq(corrections.protocol_id, params.protocol),
-								filters.metadata ? inArray(corrections.metadata, filters.metadata) : undefined,
-								filters.user ? inArray(corrections.user, filters.user) : undefined
+								...filterByQuery(url, corrections.metadata, 'metadata'),
+								...filterByQuery(url, corrections.user, 'user')
 							)
 						)
 						.orderBy(desc(corrections[orderBy]))
