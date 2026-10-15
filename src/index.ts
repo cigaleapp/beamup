@@ -206,26 +206,22 @@ Bun.serve({
 		},
 		'/protocols': {
 			GET: paginated(50, async ({ url }, { limit, offset }) => {
-				const count = await db.$count(corrections);
-				if (!count) return { items: [], hasNext: false };
+				const data = await db
+					.select({
+						protocol: corrections.protocol_id,
+						count: sql<number>`cast(count(${corrections.id}) as int)`
+					})
+					.from(corrections)
+					.groupBy(corrections.protocol_id)
+					.limit(limit)
+					.offset(offset);
 
 				return {
-					hasNext: count > offset + limit,
-					items: await db
-						.select({
-							id: corrections.protocol_id,
-							corrections_count: sql<number>`cast(count(${corrections.protocol_id}) as int)`
-						})
-						.from(corrections)
-						.limit(limit)
-						.offset(offset)
-						.orderBy(corrections.protocol_id)
-						.then((protocols) => {
-							return uniqueBy(protocols, (p) => p.id).map((protocol) => ({
-								corrections_url: new URL(`/corrections/${protocol.id}`, url).toString(),
-								...protocol
-							}));
-						})
+					hasNext: data.length > 0,
+					items: data.map((row) => ({
+						corrections_url: new URL(`/corrections/${row.protocol}`, url),
+						...row
+					}))
 				};
 			})
 		},
