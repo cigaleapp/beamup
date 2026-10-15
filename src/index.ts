@@ -1,5 +1,5 @@
 import { ArkErrors, TraversalError, type } from 'arktype';
-import { desc, eq, and, sql } from 'drizzle-orm';
+import { desc, isNotNull, eq, and, sql, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import packageManifest from '../package.json' with { type: 'json' };
@@ -76,7 +76,7 @@ Bun.serve({
 			GET: paginated(200, async ({ params, url }, { limit, offset }) => {
 				const query = new URL(url).searchParams;
 				const filters = {
-					metadata: query.get('metadata')
+					metadata: query.get('metadata')?.split(',')
 				};
 
 				const orderBy = type
@@ -90,7 +90,7 @@ Bun.serve({
 						.where(
 							and(
 								eq(corrections.protocol_id, params.protocol),
-								filters.metadata ? eq(corrections.metadata, filters.metadata) : undefined
+								filters.metadata ? inArray(corrections.metadata, filters.metadata) : undefined
 							)
 						)
 						.orderBy(desc(corrections[orderBy]))
