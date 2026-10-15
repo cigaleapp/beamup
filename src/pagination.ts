@@ -3,11 +3,13 @@ import { CorsedResponse as Response } from './cors';
 
 export const PaginatedResponseSchema = type('<Item>', {
 	next_url: 'string.url | null',
+	prev_url: 'string.url | null',
 	items: 'Item[]'
 });
 
 export type PaginatedResponse<Item> = {
 	next_url: string | null;
+	prev_url: string | null;
 	items: Item[];
 };
 
@@ -16,7 +18,7 @@ export function paginated<Item, T extends Bun.BunRequest>(
 	getItems: (
 		req: T,
 		pagination: { limit: number; offset: number }
-	) => Promise<{ hasNext: boolean; items: Item[] }>
+	) => Promise<{ hasNext: boolean; items: Item[]; extra?: Record<string, unknown> }>
 ): (req: T) => Promise<Response> {
 	return async (req) => {
 		const pagesize = type('number|string.integer.parse').assert(
@@ -33,10 +35,12 @@ export function paginated<Item, T extends Bun.BunRequest>(
 		const offset = (page - 1) * pagesize;
 
 		try {
-			const { items, hasNext } = await getItems(req, { limit: pagesize, offset });
+			const { items, hasNext, extra } = await getItems(req, { limit: pagesize, offset });
 
 			return Response.json({
+				...extra,
 				next_url: hasNext ? nextUrl(req.url, page + 1) : null,
+				prev_url: page > 1 ? nextUrl(req.url, page - 1) : null,
 				items
 			} satisfies PaginatedResponse<(typeof items)[number]>);
 		} catch (error) {

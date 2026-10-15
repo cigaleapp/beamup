@@ -85,6 +85,10 @@ Bun.serve({
 					.assert(new URL(url).searchParams.get('order_by') || 'received_at');
 
 				return {
+					extra: {
+						by_metadata_url: new URL(`/corrections/${params.protocol}/metadata`, url).toString(),
+						by_user_url: new URL(`/corrections/${params.protocol}/users`, url).toString()
+					},
 					items: await db
 						.select()
 						.from(corrections)
