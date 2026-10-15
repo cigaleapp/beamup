@@ -248,6 +248,7 @@ Bun.serve({
 
 				return Response.json({
 					'This is': 'BeamUp API for CIGALE, https://github.com/cigaleapp/beamup',
+					version: packageManifest.version,
 					'List all protocols': {
 						method: 'GET',
 						paginated: pagination,
