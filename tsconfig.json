@@ -1,6 +1,8 @@
 {
-	"include": ["src/client.ts"],
+	"include": ["src/**/*", "tests/**/*", "*.ts"],
 	"compilerOptions": {
+		"types": ["bun", "node"],
+		"rootDir": ".",
 		"outDir": "dist",
 		"declaration": true,
 
