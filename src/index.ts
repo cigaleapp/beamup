@@ -12,6 +12,9 @@ import { Correction, SendCorrectionsRequest } from './schemas.js';
 import * as tables from './tables.js';
 import { corrections, metadataAlts, metadataValues } from './tables.js';
 import { omit } from './utils.js';
+import dashboard from './dashboard/app.html';
+import DashboardHome from './dashboard/home.svelte';
+import { render } from 'svelte/server';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
 
@@ -19,6 +22,7 @@ Bun.serve({
 	port,
 	development: !Bun.env.PROD,
 	routes: {
+		'/dashboard': dashboard,
 		'/corrections': {
 			async POST(req: Request) {
 				const body = await req.json().then(SendCorrectionsRequest.assert);
