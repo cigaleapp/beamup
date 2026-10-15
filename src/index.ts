@@ -1,5 +1,5 @@
 import { ArkErrors, TraversalError, type } from 'arktype';
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, and, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import packageManifest from '../package.json' with { type: 'json' };
@@ -74,6 +74,11 @@ Bun.serve({
 		},
 		'/corrections/:protocol': {
 			GET: paginated(200, async ({ params, url }, { limit, offset }) => {
+				const query = new URL(url).searchParams;
+				const filters = {
+					metadata: query.get('metadata')
+				};
+
 				const orderBy = type
 					.enumerated('received_at', 'id', 'done_at')
 					.assert(new URL(url).searchParams.get('order_by') || 'received_at');
@@ -82,7 +87,12 @@ Bun.serve({
 					items: await db
 						.select()
 						.from(corrections)
-						.where(eq(corrections.protocol_id, params.protocol))
+						.where(
+							and(
+								eq(corrections.protocol_id, params.protocol),
+								filters.metadata ? eq(corrections.metadata, filters.metadata) : undefined
+							)
+						)
 						.orderBy(desc(corrections[orderBy]))
 						.limit(limit)
 						.offset(offset)
@@ -103,6 +113,24 @@ Bun.serve({
 						.then((r) => r.length > 0)
 				};
 			})
+		},
+		'/corrections/:protocol/metadata': {
+			async GET({ params, url }) {
+				const data = await db
+					.selectDistinct({ metadata: corrections.metadata })
+					.from(corrections)
+					.where(eq(corrections.protocol_id, params.protocol));
+
+				return Response.json(
+					data.map((row) => ({
+						metadata: row.metadata,
+						corrections_url: new URL(
+							`/corrections/${params.protocol}?metadata=${encodeURIComponent(row.metadata)}`,
+							url
+						).toString()
+					}))
+				);
+			}
 		},
 		'/corrections/:protocol/:id': {
 			async GET({ params }) {
@@ -126,18 +154,48 @@ Bun.serve({
 						const row = rows.at(0);
 						if (!row) return null;
 
+						const loadValues = (subject: {
+							value?: string | undefined;
+							alternatives: Array<null | { value?: string | undefined }>;
+						}) => {
+							try {
+								return {
+									...subject,
+									value: subject.value ? JSON.parse(subject.value) : undefined,
+									alternatives: subject.alternatives
+										.filter((alt) => alt !== null)
+										.map((alt) => (alt.value ? JSON.parse(alt.value) : undefined))
+										.filter((alt) => alt !== undefined)
+								};
+							} catch {
+								return subject;
+							}
+						};
+
 						const unflatten = (
 							values: typeof row.before_values,
-							alternatives: typeof row.before_alternatives
+							alternatives: Array<typeof row.before_alternatives>
 						) => ({
 							...omit(values, 'id'),
-							alternatives: omit(alternatives, 'id', 'metadata_value_id') ?? []
+							alternatives: alternatives
+								.filter((alt) => alt !== null)
+								.map((alt) => omit(alt, 'id', 'metadata_value_id'))
 						});
 
 						return {
 							...row.corrections,
-							before: unflatten(row.before_values, row.before_alternatives),
-							after: unflatten(row.after_values, row.after_alternatives)
+							before: loadValues(
+								unflatten(
+									row.before_values,
+									rows.map((row) => row.before_alternatives)
+								)
+							),
+							after: loadValues(
+								unflatten(
+									row.after_values,
+									rows.map((row) => row.after_alternatives)
+								)
+							)
 						};
 					});
 
