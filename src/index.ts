@@ -2,18 +2,30 @@ import { ArkErrors, TraversalError, type } from 'arktype';
 import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
+
 import packageManifest from '../package.json' with { type: 'json' };
+import { SubscriptionTemplate } from './tables.js';
 import * as c from './console.js';
 import { CorsedResponse as Response } from './cors.js';
 import { db } from './database.js';
 import { filterByQuery } from './filters';
 import { paginated } from './pagination.js';
-import { Correction, SendCorrectionsRequest } from './schemas.js';
+import { Correction, CreateSubscriptionRequest, SendCorrectionsRequest } from './schemas.js';
+import {
+	attachmentS3Path,
+	countSubscriptionsByFrequency,
+	runSubscription,
+	startSubscriptionCronJobs,
+	collectSubscriptionCorrections
+} from './subscriptions';
 import * as tables from './tables.js';
 import { corrections, metadataAlts, metadataValues } from './tables.js';
 import { omit } from './utils.js';
+import { nestCorrection } from './corrections.js';
 
 const port = process.argv[2] ? parseInt(process.argv[2]) : 3000;
+
+let baseURL: string = '';
 
 Bun.serve({
 	port,
@@ -57,7 +69,7 @@ Bun.serve({
 
 						await tx.insert(tables.corrections).values({
 							...correction,
-							received_at: new Date().toISOString(),
+							received_at: new Date(),
 							id: nanoid(),
 							before: before_id,
 							after: after_id
@@ -170,49 +182,7 @@ Bun.serve({
 						const row = rows.at(0);
 						if (!row) return null;
 
-						const loadValues = (subject: {
-							value?: string | undefined;
-							alternatives: Array<null | { value?: string | undefined }>;
-						}) => {
-							try {
-								return {
-									...subject,
-									value: subject.value ? JSON.parse(subject.value) : undefined,
-									alternatives: subject.alternatives
-										.filter((alt) => alt !== null)
-										.map((alt) => (alt.value ? JSON.parse(alt.value) : undefined))
-										.filter((alt) => alt !== undefined)
-								};
-							} catch {
-								return subject;
-							}
-						};
-
-						const unflatten = (
-							values: typeof row.before_values,
-							alternatives: Array<typeof row.before_alternatives>
-						) => ({
-							...omit(values, 'id'),
-							alternatives: alternatives
-								.filter((alt) => alt !== null)
-								.map((alt) => omit(alt, 'id', 'metadata_value_id'))
-						});
-
-						return {
-							...row.corrections,
-							before: loadValues(
-								unflatten(
-									row.before_values,
-									rows.map((row) => row.before_alternatives)
-								)
-							),
-							after: loadValues(
-								unflatten(
-									row.after_values,
-									rows.map((row) => row.after_alternatives)
-								)
-							)
-						};
+						return nestCorrection(row, rows);
 					});
 
 				if (!data) return Response.json({ error: 'Not found' }, { status: 404 });
@@ -241,6 +211,83 @@ Bun.serve({
 				};
 			})
 		},
+		'/subscriptions': {
+			async POST(req: Request) {
+				const data = await req.json().then(CreateSubscriptionRequest.assert);
+
+				const id = nanoid();
+				await db.insert(tables.subscriptions).values({
+					...data,
+					id,
+					title_template: SubscriptionTemplate.assert(data.title_template),
+					body_template: SubscriptionTemplate.assert(data.body_template)
+				});
+
+				return Response.json({ id });
+			}
+		},
+		'/subscriptions/:id': {
+			async GET({ params, url }) {
+				const [first] = await db
+					.select()
+					.from(tables.subscriptions)
+					.where(eq(tables.subscriptions.id, params.id));
+
+				if (!first) return new Response('Not Found', { status: 404 });
+
+				return Response.json({
+					preview_corrections_url: new URL(`/subscriptions/${first.id}/preview`, url),
+					trigger_subscription_url: `POST ${new URL(`/subscriptions/${first.id}/trigger`, url)}`,
+					...first
+				});
+			},
+			async DELETE({ params }) {
+				await db.delete(tables.subscriptions).where(eq(tables.subscriptions.id, params.id));
+
+				return new Response('OK', { status: 204 });
+			}
+		},
+		'/subscriptions/:id/preview': {
+			async GET({ params, url }) {
+				const [sub] = await db
+					.select()
+					.from(tables.subscriptions)
+					.where(eq(tables.subscriptions.id, params.id));
+				if (!sub) return new Response('Subscription not found', { status: 404 });
+
+				const data = await collectSubscriptionCorrections(sub);
+
+				return Response.json(data);
+			}
+		},
+		'/subscriptions/:id/trigger': {
+			async POST({ params, url }) {
+				const [subscription] = await db
+					.select()
+					.from(tables.subscriptions)
+					.where(eq(tables.subscriptions.id, params.id));
+
+				if (!subscription) return new Response('Subscription not found', { status: 404 });
+
+				await runSubscription(subscription, {
+					ntfyClickUrl: (sub, file) => new URL(`/subscriptions/${sub}/attachments/${file}`, url),
+					force: true
+				});
+
+				return new Response('Subscription ran', { status: 201 });
+			}
+		},
+		'/subscriptions/:id/attachments/:file': {
+			async GET({ params }) {
+				const file = Bun.s3.file(attachmentS3Path(params.id, params.file as 'corrections.json'));
+
+				return Response.json(await file.json(), {
+					headers: {
+						'Content-Disposition': `attachment; filename="${params.file}"`
+					}
+				});
+			}
+		},
 		'/': {
 			async GET({ url }) {
 				const pagination =
@@ -268,11 +315,27 @@ Bun.serve({
 						method: 'POST',
 						url: url + 'correction',
 						body: Correction.toJsonSchema()
+					},
+					'Subscribe to corrections': {
+						method: 'POST',
+						url: url + 'subscriptions',
+						body: CreateSubscriptionRequest.toJsonSchema()
+					},
+					'See a subscription': {
+						method: 'GET',
+						url: url + 'subscriptions/{id}'
+					},
+					'Trigger a subscription manually': {
+						method: 'POST',
+						url: url + 'subscriptions/{id}/trigger',
+						body: null
 					}
 				});
 			}
 		},
 		async '/*'({ url }) {
+			baseURL = new URL(url).origin;
+
 			if (new URL(url).pathname.endsWith('/')) {
 				return Response.redirect(url.slice(0, -1), 301);
 			}
@@ -307,12 +370,23 @@ Bun.serve({
 	}
 });
 
+await startSubscriptionCronJobs({
+	ntfyClickUrl: (sub, file) => new URL(`/subscriptions/${sub}/attachments/${file}`, baseURL)
+});
+
+const subcounts = Object.entries(await countSubscriptionsByFrequency())
+	.map(([freq, count]) => `${c.strong(count)}${c.em(`(${freq[0]})`)}`)
+	.join(' / ');
+
 console.info(
 	`
 BeamUp Server ${c.strong('v' + packageManifest.version)} · ${c.em(packageManifest.homepage)}
 Using Bun ${c.em(Bun.version_with_sha)}
+Started cron jobs for ${subcounts} subscriptions
 Accepting requests from ${c.strong(Bun.env.ALLOWED_ORIGINS || '*')}
 Database ${c.em(Bun.env.DB_FILE_NAME)} has ${c.strong(await db.$count(corrections))} corrections
+Attachments go to ${c.em(`${Bun.env.S3_ENDPOINT}`)} on bucket ${c.strong(Bun.env.S3_BUCKET)}
+Mails go to ${c.em(`smtp://${Bun.env.SMTP_HOST}:${Bun.env.SMTP_PORT}`)} from ${c.strong(Bun.env.MAILS_FROM)}
 Listening on ${c.strong(':' + port)} in ${c.boolean(Bun.env.PROD, 'development', 'production')} mode
 `
 );

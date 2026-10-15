@@ -41,4 +41,4 @@ USER bun
 EXPOSE 3000/tcp
 ENV DB_FILE_NAME=/app/db/db.sqlite3
 ENV ALLOWED_ORIGINS=*
-ENTRYPOINT [ "sh", "-c", "bun run migrate.ts && bun run src/index.ts" ]
+ENTRYPOINT ["sh", "-c", "bun run migrate.ts && bun run src/index.ts"]

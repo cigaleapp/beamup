@@ -6,7 +6,7 @@ import {
 	sendCorrections,
 	CHUNK_SIZE
 } from '../src/client.js';
-import { SendCorrectionsRequest } from '../src/tables.js';
+import { SendCorrectionsRequest } from '../src/schemas.js';
 import { PaginatedResponseSchema } from '../src/pagination.js';
 
 const TEST_PORT = 3001;
@@ -53,7 +53,8 @@ describe('BeamUp Server Tests', () => {
 			env: {
 				...process.env,
 				DB_FILE_NAME: testDbFile,
-				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`
+				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`,
+				SKIP_CRON_JOBS: 'true'
 			},
 			stdout: 'pipe'
 		});
@@ -163,11 +164,11 @@ describe('BeamUp Server Tests', () => {
 			},
 			comment: 'Test correction',
 			user: 'test-user',
-			done_at: new Date().toISOString()
+			done_at: new Date()
 		};
 
 		// This should succeed (all required fields provided)
-		await expect(
+		expect(
 			sendCorrections({ origin: SERVER_URL, corrections: testCorrection })
 		).resolves.toBeUndefined();
 
@@ -195,7 +196,7 @@ describe('BeamUp Server Tests', () => {
 	});
 
 	test('sendCorrections should handle validation errors (known server issue)', async () => {
-		const done_at = new Date().toISOString();
+		const done_at = new Date('2026-10-16T12:16:59.409Z');
 		const testCorrection: Omit<typeof SendCorrectionsRequest.infer, 'metadata'> = {
 			origin: SERVER_URL,
 			client_name: 'test-client',
@@ -229,7 +230,7 @@ describe('BeamUp Server Tests', () => {
 		expect(
 			sendCorrections({ origin: SERVER_URL, corrections: testCorrection as any })
 		).rejects.toThrowErrorMatchingInlineSnapshot(
-			`"400 {"validation_issues":[{"path":[],"message":"after must be an object (was missing) or [0].metadata must be a string (was missing)","actual":"[{\\"origin\\":\\"http://localhost:3001\\",\\"client_name\\":\\"test-client\\",\\"client_version\\":\\"1.3.12\\",\\"subject\\":\\"test-subject\\",\\"subject_content_hash\\":\\"abc123\\",\\"subject_type\\":\\"image\\",\\"protocol_id\\":\\"test-protocol\\",\\"protocol_version\\":\\"1.0.0\\",\\"before\\":{\\"value\\":\\"before-value\\",\\"type\\":\\"string\\",\\"alternatives\\":[{\\"value\\":\\"alt-value\\",\\"confidence\\":0.8}]},\\"after\\":{\\"value\\":\\"after-value\\",\\"type\\":\\"string\\",\\"alternatives\\":[]},\\"comment\\":\\"Test correction\\",\\"user\\":\\"test-user\\",\\"done_at\\":\\"${done_at}\\"}]","expected":"after must be an object (was missing) or [0].metadata must be a string (was missing)"}]}"`
+			`"400 {"validation_issues":[{"path":[],"message":"after must be an object (was missing) or [0].metadata must be a string (was missing)","actual":"[{\\"origin\\":\\"http://localhost:3001\\",\\"client_name\\":\\"test-client\\",\\"client_version\\":\\"1.3.12\\",\\"subject\\":\\"test-subject\\",\\"subject_content_hash\\":\\"abc123\\",\\"subject_type\\":\\"image\\",\\"protocol_id\\":\\"test-protocol\\",\\"protocol_version\\":\\"1.0.0\\",\\"before\\":{\\"value\\":\\"before-value\\",\\"type\\":\\"string\\",\\"alternatives\\":[{\\"value\\":\\"alt-value\\",\\"confidence\\":0.8}]},\\"after\\":{\\"value\\":\\"after-value\\",\\"type\\":\\"string\\",\\"alternatives\\":[]},\\"comment\\":\\"Test correction\\",\\"user\\":\\"test-user\\",\\"done_at\\":\\"2026-10-16T12:16:59.409Z\\"}]","expected":"after must be an object (was missing) or [0].metadata must be a string (was missing)"}]}"`
 		);
 	});
 
@@ -256,7 +257,7 @@ describe('BeamUp Server Tests', () => {
 			},
 			comment: 'Test correction with data',
 			user: 'test-user-filled',
-			done_at: new Date().toISOString()
+			done_at: new Date()
 		};
 
 		await sendCorrections({
@@ -291,17 +292,17 @@ describe('BeamUp Server Tests', () => {
 			after: {
 				alternatives: [],
 				type: 'string',
-				value: '"after-value-filled"'
+				value: 'after-value-filled'
 			},
 			before: {
 				alternatives: [],
 				type: 'string',
-				value: '"before-value-filled"'
+				value: 'before-value-filled'
 			},
 			client_name: 'test-client-filled',
 			client_version: '2.0.0',
 			comment: 'Test correction with data',
-			done_at: testCorrection.done_at,
+			done_at: testCorrection.done_at.toISOString(),
 			metadata: 'test-metadata-filled',
 			protocol_id: 'test-protocol-with-data',
 			protocol_version: '2.0.0',
@@ -356,7 +357,7 @@ describe('BeamUp Server Tests', () => {
 			},
 			comment: 'Detailed correction with data',
 			user: 'detail-user-filled',
-			done_at: new Date().toISOString()
+			done_at: new Date()
 		};
 
 		await sendCorrections({
@@ -376,25 +377,30 @@ describe('BeamUp Server Tests', () => {
 
 		expect(details).toMatchObject({
 			after: {
-				alternatives: {
-					confidence: 0.7,
-					value: '"alt-after"'
-				},
+				alternatives: [
+					{
+						confidence: 0.7,
+						value: 'alt-after'
+					}
+				],
 				type: 'string',
-				value: '"detailed-after-filled"'
+				value: 'detailed-after-filled'
 			},
 			before: {
-				alternatives: {
-					confidence: 0.9,
-					value: '"alt-before"'
-				},
+				alternatives: [
+					{
+						confidence: 0.9,
+						value: 'alt-before'
+					}
+				],
 				type: 'string',
-				value: '"detailed-before-filled"'
+				value: 'detailed-before-filled'
 			},
 			client_name: 'detail-client',
 			client_version: '3.0.0',
 			comment: 'Detailed correction with data',
-			done_at: testCorrection.done_at,
+			done_at: testCorrection.done_at.toISOString(),
+			received_at: expect.any(String), // The server sets this automatically
 			id: correction.id,
 			metadata: 'detail-metadata-filled',
 			protocol_id: 'detail-protocol-filled',
@@ -458,7 +464,7 @@ describe('BeamUp Server Tests', () => {
 			},
 			comment: `Test correction ${index}`,
 			user: `test-user-${index}`,
-			done_at: new Date().toISOString()
+			done_at: new Date()
 		};
 	}
 
@@ -658,7 +664,7 @@ describe('BeamUp Server Tests', () => {
 			sent: 3,
 			total: 3
 		});
-		expect(progressCalls[0].timestamp).toBeGreaterThan(0);
+		expect(progressCalls[0]!.timestamp).toBeGreaterThan(0);
 
 		// Verify corrections were stored
 		const storedCount = db.query('SELECT COUNT(*) as count FROM corrections').get() as {

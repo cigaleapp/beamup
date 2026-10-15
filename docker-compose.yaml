@@ -8,6 +8,12 @@ services:
       - DB_FILE_NAME=/app/db.sqlite3
       - ALLOWED_ORIGINS=http://localhost:5173
       - PROD=true
+      - SMTP_HOST=smtp
+      - SMTP_PORT=1025
+      - S3_BUCKET=beamup
+      - S3_ENDPOINT=http://s3:9000
+      - S3_ACCESS_KEY_ID=minioadmin
+      - S3_SECRET_ACCESS_KEY=minioadmin
     volumes:
       - ./db.sqlite3:/app/db.sqlite3:rw
     develop:
@@ -18,3 +24,22 @@ services:
         - path: drizzle/
           target: /app/drizzle/
           action: sync+restart
+
+  smtp:
+    # image: namshi/smtp
+    # ports:
+    #   - 1025:25
+    image: mailhog/mailhog
+    ports:
+      - 1025:1025
+      - 8025:8025
+
+  s3:
+    image: minio/minio
+    ports:
+      - 9000:9000
+      - 9001:9001
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"

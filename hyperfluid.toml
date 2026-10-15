@@ -1,0 +1,7 @@
+[containers.beamup]
+repository = "ghcr.io/cigaleapp/beamup"
+tag = "latest"
+
+[containers.beamup-smtp]
+repository = "registry.gitlab.com/egos-tech/smtp"
+tag = "2.0.10"
