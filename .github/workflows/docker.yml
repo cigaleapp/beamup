@@ -51,3 +51,14 @@ jobs:
             revision=${{ github.sha }}
             repository=https://github.com/${{ github.repository }}
             version=${{ steps.meta.outputs.version }}
+      - name: Deploy new version on production
+        env:
+          SA: ${{ secrets.HYPERFLUID_SERVICE_ACCOUNT }}
+          ENV: Default
+          APP: cigale-beamup
+        run: |
+          echo "$SA" > sa.json
+          curl -fsSL https://ai.meso.umontpellier.fr/downloads/install.sh | sh
+          hfctl auth login --service-account sa.json
+          hfctl config set env "$ENV"
+          hfctl apps restart "$APP"
