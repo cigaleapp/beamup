@@ -30,3 +30,12 @@ export function chunk<T>(arr: T[], size: number): T[][] {
 	}
 	return chunks;
 }
+
+export function globToLike(pattern: string) {
+	return pattern.replaceAll('*', '%').replaceAll('?', '_');
+}
+
+export function ensureArray<T>(value: T | T[]): T[] {
+	if (Array.isArray(value)) return value;
+	return [value];
+}

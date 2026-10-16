@@ -5,7 +5,7 @@ import type {
 	CorrectionsList,
 	SendCorrectionsRequest,
 	SendableCorrection
-} from './tables.js';
+} from './schemas.js';
 import { chunk } from './utils.js';
 
 export const CHUNK_SIZE = MAX_CORRECTIONS_PER_REQUEST;

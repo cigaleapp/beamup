@@ -1,4 +1,5 @@
 {
 	"$schema": "./node_modules/knip/schema.json",
-	"entry": ["src/index.ts", "./environment.d.ts"]
+	"entry": ["src/index.ts", "release.ts", "src/client.ts"],
+	"ignoreDependencies": ["lint-staged"]
 }

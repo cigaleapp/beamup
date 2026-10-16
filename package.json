@@ -29,7 +29,7 @@
 		"check:clutter": "bunx --bun knip",
 		"migrate": "bun run migrate.ts",
 		"makemigration": "bunx drizzle-kit generate --name",
-		"dev": "bun run --watch src/index.ts",
+		"dev": "docker compose up smtp s3 --detach && bun run --watch src/index.ts",
 		"test": "bun test",
 		"test:watch": "bun test --watch",
 		"test:coverage": "bun test --coverage",
@@ -63,7 +63,6 @@
 	"dependencies": {
 		"arktype": "^2.2.8",
 		"date-fns": "^4.4.0",
-		"es-toolkit": "^1.52.0",
 		"nodemailer": "^10.1.1"
 	}
 }
