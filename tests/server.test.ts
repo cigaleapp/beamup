@@ -92,7 +92,7 @@ describe('BeamUp Server Tests', () => {
 		const response = await fetch(`${SERVER_URL}/protocols`);
 		expect(response.ok).toBe(true);
 
-		const data = await response.json();
+		const data = (await response.json()) as { items: unknown[] };
 		expect(PaginatedResponseSchema('unknown').allows(data)).toBe(true);
 		expect(data.items.length).toBe(0);
 	});
@@ -106,17 +106,23 @@ describe('BeamUp Server Tests', () => {
 		const response = await fetch(`${SERVER_URL}/corrections/non-existent-protocol`);
 		expect(response.ok).toBe(true);
 
-		const data = await response.json();
+		const data = (await response.json()) as { items: unknown[] };
 		expect(PaginatedResponseSchema('unknown').allows(data)).toBe(true);
 		expect(data.items.length).toBe(0);
 	});
 
 	test('database should be clean before each test', async () => {
-		const storedCorrections = await sql`SELECT cast(count(*) as int) as count FROM corrections`;
-		expect(storedCorrections[0].count).toBe(0);
+		const storedCorrections =
+			(await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+				count: number;
+			}[];
+		expect(storedCorrections[0]!.count).toBe(0);
 
-		const metadataRows = await sql`SELECT cast(count(*) as int) as count FROM metadata_values`;
-		expect(metadataRows[0].count).toBe(0);
+		const metadataRows =
+			(await sql`SELECT cast(count(*) as int) as count FROM metadata_values`) as {
+				count: number;
+			}[];
+		expect(metadataRows[0]!.count).toBe(0);
 	});
 
 	test('sendCorrections should successfully send a correction to the server', async () => {
@@ -154,10 +160,13 @@ describe('BeamUp Server Tests', () => {
 			sendCorrections({ origin: SERVER_URL, corrections: testCorrection })
 		).resolves.toBeUndefined();
 
-		const storedCorrections = await sql`SELECT cast(count(*) as int) as count FROM corrections`;
-		expect(storedCorrections[0].count).toBe(1);
+		const storedCorrections =
+			(await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+				count: number;
+			}[];
+		expect(storedCorrections[0]!.count).toBe(1);
 
-		const [correction] = await sql`SELECT * FROM corrections LIMIT 1`;
+		const [correction] = (await sql`SELECT * FROM corrections LIMIT 1`) as any[];
 		expect(correction.protocol_id).toBe('test-protocol');
 		expect(correction.protocol_version).toBe('1.0.0');
 		expect(correction.metadata).toBe('test-metadata-key');
@@ -166,8 +175,11 @@ describe('BeamUp Server Tests', () => {
 		expect(correction.subject).toBe('test-subject');
 		expect(correction.subject_type).toBe('observation');
 
-		const metadataCount = await sql`SELECT cast(count(*) as int) as count FROM metadata_values`;
-		expect(metadataCount[0].count).toBe(2);
+		const metadataCount =
+			(await sql`SELECT cast(count(*) as int) as count FROM metadata_values`) as {
+				count: number;
+			}[];
+		expect(metadataCount[0]!.count).toBe(2);
 	});
 
 	test('sendCorrections should handle validation errors (known server issue)', async () => {
@@ -244,11 +256,12 @@ describe('BeamUp Server Tests', () => {
 		});
 
 		expect(protocolCorrections).toHaveLength(1);
-		expect(protocolCorrections[0]).toMatchObject({
+		const firstCorrection = protocolCorrections[0]!;
+		expect(firstCorrection).toMatchObject({
 			client_name: 'test-client-filled',
 			client_version: '2.0.0',
 			comment: 'Test correction with data',
-			details_url: `http://localhost:3001/corrections/test-protocol-with-data/${protocolCorrections[0].id}`,
+			details_url: `http://localhost:3001/corrections/test-protocol-with-data/${firstCorrection.id}`,
 			metadata: 'test-metadata-filled',
 			protocol_id: 'test-protocol-with-data',
 			protocol_version: '2.0.0',
@@ -258,7 +271,7 @@ describe('BeamUp Server Tests', () => {
 			user: 'test-user-filled'
 		});
 
-		const details = await protocolCorrections[0].details();
+		const details = await firstCorrection.details();
 		expect(details).toMatchObject({
 			after: {
 				alternatives: [],
@@ -333,12 +346,12 @@ describe('BeamUp Server Tests', () => {
 			corrections: testCorrection
 		});
 
-		const [correction] = await sql`SELECT id FROM corrections LIMIT 1`;
+		const [correction] = (await sql`SELECT id FROM corrections LIMIT 1`) as { id: string }[];
 
 		const details = await correctionDetails({
 			origin: SERVER_URL,
 			protocol: 'detail-protocol-filled',
-			id: correction.id
+			id: correction!.id
 		});
 
 		expect(details).toMatchObject({
@@ -367,7 +380,7 @@ describe('BeamUp Server Tests', () => {
 			comment: 'Detailed correction with data',
 			done_at: testCorrection.done_at.toISOString(),
 			received_at: expect.any(String),
-			id: correction.id,
+			id: correction!.id,
 			metadata: 'detail-metadata-filled',
 			protocol_id: 'detail-protocol-filled',
 			protocol_version: '3.0.0',
@@ -437,10 +450,12 @@ describe('BeamUp Server Tests', () => {
 			corrections
 		});
 
-		const storedCount = await sql`SELECT cast(count(*) as int) as count FROM corrections`;
-		expect(storedCount[0].count).toBe(5);
+		const storedCount = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+			count: number;
+		}[];
+		expect(storedCount[0]!.count).toBe(5);
 
-		const storedCorrections = await sql`SELECT * FROM corrections ORDER BY subject`;
+		const storedCorrections = (await sql`SELECT * FROM corrections ORDER BY subject`) as any[];
 		expect(storedCorrections).toHaveLength(5);
 
 		for (let i = 0; i < 5; i++) {
@@ -449,8 +464,11 @@ describe('BeamUp Server Tests', () => {
 			expect(storedCorrections[i].comment).toBe(`Test correction ${i}`);
 		}
 
-		const metadataCount = await sql`SELECT cast(count(*) as int) as count FROM metadata_values`;
-		expect(metadataCount[0].count).toBe(10);
+		const metadataCount =
+			(await sql`SELECT cast(count(*) as int) as count FROM metadata_values`) as {
+				count: number;
+			}[];
+		expect(metadataCount[0]!.count).toBe(10);
 	});
 
 	test('sendCorrections should handle multiple chunks (more than CHUNK_SIZE corrections)', async () => {
@@ -473,8 +491,10 @@ describe('BeamUp Server Tests', () => {
 			total: exactChunkSize
 		});
 
-		const storedCount1 = await sql`SELECT cast(count(*) as int) as count FROM corrections`;
-		expect(storedCount1[0].count).toBe(exactChunkSize);
+		const storedCount1 = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+			count: number;
+		}[];
+		expect(storedCount1[0]!.count).toBe(exactChunkSize);
 
 		await sql`TRUNCATE metadata_value_alternatives, metadata_values, corrections RESTART IDENTITY CASCADE`;
 
@@ -498,8 +518,10 @@ describe('BeamUp Server Tests', () => {
 			total: 3
 		});
 
-		const storedCount2 = await sql`SELECT cast(count(*) as int) as count FROM corrections`;
-		expect(storedCount2[0].count).toBe(3);
+		const storedCount2 = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+			count: number;
+		}[];
+		expect(storedCount2[0]!.count).toBe(3);
 	});
 
 	test('sendCorrections should call onProgress hook with multiple corrections', async () => {
@@ -521,8 +543,10 @@ describe('BeamUp Server Tests', () => {
 			total: 5
 		});
 
-		const storedCount = await sql`SELECT cast(count(*) as int) as count FROM corrections`;
-		expect(storedCount[0].count).toBe(5);
+		const storedCount = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+			count: number;
+		}[];
+		expect(storedCount[0]!.count).toBe(5);
 	});
 
 	test('sendCorrections should call onProgress hook with multiple chunks', async () => {
@@ -545,8 +569,10 @@ describe('BeamUp Server Tests', () => {
 			total: correctionCount
 		});
 
-		const storedCount = await sql`SELECT cast(count(*) as int) as count FROM corrections`;
-		expect(storedCount[0].count).toBe(correctionCount);
+		const storedCount = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+			count: number;
+		}[];
+		expect(storedCount[0]!.count).toBe(correctionCount);
 	});
 
 	test('sendCorrections should handle async onProgress hook', async () => {
@@ -576,7 +602,9 @@ describe('BeamUp Server Tests', () => {
 		});
 		expect(progressCalls[0]!.timestamp).toBeGreaterThan(0);
 
-		const storedCount = await sql`SELECT cast(count(*) as int) as count FROM corrections`;
-		expect(storedCount[0].count).toBe(3);
+		const storedCount = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+			count: number;
+		}[];
+		expect(storedCount[0]!.count).toBe(3);
 	});
 });
