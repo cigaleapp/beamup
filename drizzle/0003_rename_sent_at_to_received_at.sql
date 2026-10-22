@@ -1,1 +1,0 @@
-ALTER TABLE `corrections` RENAME COLUMN "sent_at" TO "received_at";

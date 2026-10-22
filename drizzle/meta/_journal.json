@@ -1,40 +1,12 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1758377239809,
-      "tag": "0000_wandering_ironclad",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1758392211312,
-      "tag": "0001_add_subject",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1758399143658,
-      "tag": "0002_add_client_and_content_hash_to_correction",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1758699516456,
-      "tag": "0003_rename_sent_at_to_received_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1792152213724,
-      "tag": "0004_add_subscriptions",
+      "version": "7",
+      "when": 1792688202252,
+      "tag": "0000_giant_miek",
       "breakpoints": true
     }
   ]

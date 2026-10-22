@@ -1,6 +1,6 @@
 import { ArkErrors, TraversalError, type } from 'arktype';
 import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/sqlite-core';
+import { alias } from 'drizzle-orm/pg-core';
 import { nanoid } from 'nanoid';
 
 import packageManifest from '../package.json' with { type: 'json' };
@@ -384,7 +384,7 @@ BeamUp Server ${c.strong('v' + packageManifest.version)} · ${c.em(packageManife
 Using Bun ${c.em(Bun.version_with_sha)}
 Started cron jobs for ${subcounts} subscriptions
 Accepting requests from ${c.strong(Bun.env.ALLOWED_ORIGINS || '*')}
-Database ${c.em(Bun.env.DB_FILE_NAME)} has ${c.strong(await db.$count(corrections))} corrections
+Database ${c.em(Bun.env.DATABASE_URL?.replace(/\/\/[^@/]+@/, '//***@'))} has ${c.strong(await db.$count(corrections))} corrections
 Attachments go to ${c.em(`${Bun.env.S3_ENDPOINT}`)} on bucket ${c.strong(Bun.env.S3_BUCKET)}
 Mails go to ${c.em(`smtp://${Bun.env.SMTP_HOST}:${Bun.env.SMTP_PORT}`)} from ${c.strong(Bun.env.MAILS_FROM)}
 Listening on ${c.strong(':' + port)} in ${c.boolean(Bun.env.PROD, 'development', 'production')} mode

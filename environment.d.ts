@@ -1,6 +1,6 @@
 declare module 'bun' {
 	interface Env {
-		DB_FILE_NAME: string;
+		DATABASE_URL: string;
 		ALLOWED_ORIGINS: string;
 		PROD: 'true' | undefined;
 		SMTP_HOST: string;

@@ -32,12 +32,5 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
-db.sqlite3
-
-# test databases
-test-*.sqlite3
-test-*.sqlite3-journal
 
 /.secrets
-/db.sqlite3-shm
-/db.sqlite3-wal

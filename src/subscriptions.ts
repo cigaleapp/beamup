@@ -1,6 +1,6 @@
 import { differenceInDays, differenceInMonths } from 'date-fns';
-import { and, count, desc, eq, gte, like, notLike } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/sqlite-core';
+import { and, count, desc, eq, gte, ilike, notIlike } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import * as c from './console.js';
 import { nestCorrection } from './corrections.js';
 import { db } from './database.js';
@@ -148,16 +148,16 @@ export async function collectSubscriptionCorrections(subscription: Subscription)
 					? gte(corrections.received_at, subscription.send_received_after)
 					: undefined,
 				subscription.users_glob
-					? like(corrections.user, globToLike(subscription.users_glob))
+					? ilike(corrections.user, globToLike(subscription.users_glob))
 					: undefined,
 				subscription.users_exclude_glob
-					? notLike(corrections.user, globToLike(subscription.users_exclude_glob))
+					? notIlike(corrections.user, globToLike(subscription.users_exclude_glob))
 					: undefined,
 				subscription.subject_glob
-					? like(corrections.subject, globToLike(subscription.subject_glob))
+					? ilike(corrections.subject, globToLike(subscription.subject_glob))
 					: undefined,
 				subscription.metadata_glob
-					? like(corrections.metadata, globToLike(subscription.metadata_glob))
+					? ilike(corrections.metadata, globToLike(subscription.metadata_glob))
 					: undefined
 			)
 		)

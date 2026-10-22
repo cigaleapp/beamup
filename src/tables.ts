@@ -1,5 +1,5 @@
 import { Type, type } from 'arktype';
-import { customType, real, sqliteTable as table, text } from 'drizzle-orm/sqlite-core';
+import { customType, pgTable as table, real, text } from 'drizzle-orm/pg-core';
 
 import type { SubscriptionsTemplatePayload } from './schemas.js';
 
