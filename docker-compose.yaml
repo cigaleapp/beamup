@@ -5,7 +5,7 @@ services:
     ports:
       - 3000:3000
     environment:
-      - DB_FILE_NAME=/app/db.sqlite3
+      - DATABASE_URL=postgres://beamup:beamup@postgres:5432/beamup
       - ALLOWED_ORIGINS=http://localhost:5173
       - PROD=true
       - SMTP_HOST=smtp
@@ -14,8 +14,8 @@ services:
       - S3_ENDPOINT=http://s3:9000
       - S3_ACCESS_KEY_ID=minioadmin
       - S3_SECRET_ACCESS_KEY=minioadmin
-    volumes:
-      - ./db.sqlite3:/app/db.sqlite3:rw
+    depends_on:
+      - postgres
     develop:
       watch:
         - path: src/
@@ -24,6 +24,17 @@ services:
         - path: drizzle/
           target: /app/drizzle/
           action: sync+restart
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_USER=beamup
+      - POSTGRES_PASSWORD=beamup
+      - POSTGRES_DB=beamup
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
 
   smtp:
     # image: namshi/smtp
@@ -43,3 +54,6 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9001"
+
+volumes:
+  postgres-data:

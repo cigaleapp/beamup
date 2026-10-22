@@ -1,7 +1,7 @@
 import { inArray, notInArray } from 'drizzle-orm';
-import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import type { PgColumn } from 'drizzle-orm/pg-core';
 
-export function filterByQuery(url: string, column: SQLiteColumn, key: string) {
+export function filterByQuery(url: string, column: PgColumn, key: string) {
 	const values = new URL(url).searchParams
 		.get(key)
 		?.split(',')

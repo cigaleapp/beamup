@@ -1,5 +1,5 @@
-import { Database } from 'bun:sqlite';
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import postgres from 'postgres';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import {
 	correctionDetails,
 	correctionsOfProtocol,
@@ -11,31 +11,25 @@ import { PaginatedResponseSchema } from '../src/pagination.js';
 
 const TEST_PORT = 3001;
 const SERVER_URL = `http://localhost:${TEST_PORT}`;
+const DATABASE_URL = Bun.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+	throw new Error('DATABASE_URL environment variable is required for tests');
+}
 
 describe('BeamUp Server Tests', () => {
 	let serverProcess: Bun.Subprocess;
-	let db: Database;
-	let testDbFile: string;
+	let sql: postgres.Sql;
 
-	beforeEach(async () => {
-		// Use unique database name for each test
-		testDbFile = `test-db-${Date.now()}-${Math.random().toString(36).substring(7)}.sqlite3`;
+	beforeAll(async () => {
+		sql = postgres(DATABASE_URL, { max: 1 });
 
-		// Delete existing database file if it exists
-		await Bun.file(testDbFile)
-			.delete()
-			.catch(() => {});
-
-		// Set up environment for clean database and run migrations
-		process.env.DB_FILE_NAME = testDbFile;
-
-		// Run migration using Bun
 		const migrationProcess = Bun.spawnSync(['bun', 'run', 'migrate.ts'], {
 			cwd: process.cwd(),
 			env: {
-				...process.env,
-				DB_FILE_NAME: testDbFile,
-				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`
+				...Bun.env,
+				DATABASE_URL,
+				PATH: `${Bun.env.HOME}/.bun/bin:${Bun.env.PATH}`
 			},
 			stdout: 'pipe'
 		});
@@ -43,24 +37,23 @@ describe('BeamUp Server Tests', () => {
 		if (migrationProcess.exitCode !== 0) {
 			throw new Error(`Migration failed: ${migrationProcess.stderr.toString('utf-8')}`);
 		}
+	});
 
-		// Connect to database for assertions
-		db = new Database(testDbFile);
+	beforeEach(async () => {
+		await sql`TRUNCATE metadata_value_alternatives, metadata_values, corrections RESTART IDENTITY CASCADE`;
 
-		// Start the server as a separate process using bun
 		serverProcess = Bun.spawn(['bun', 'run', 'src/index.ts', TEST_PORT.toString()], {
 			cwd: process.cwd(),
 			env: {
-				...process.env,
-				DB_FILE_NAME: testDbFile,
-				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`,
+				...Bun.env,
+				DATABASE_URL,
+				PATH: `${Bun.env.HOME}/.bun/bin:${Bun.env.PATH}`,
 				SKIP_CRON_JOBS: 'true'
 			},
 			stdout: 'pipe'
 		});
 
-		// Wait for server to start
-		await new Promise((resolve, reject) => {
+		await new Promise<void>((resolve, reject) => {
 			const timeout = setTimeout(() => {
 				reject(new Error('Server failed to start within timeout'));
 			}, 10000);
@@ -70,43 +63,38 @@ describe('BeamUp Server Tests', () => {
 					const response = await fetch(`${SERVER_URL}/protocols`);
 					if (response.ok || response.status === 404) {
 						clearTimeout(timeout);
-						resolve(null);
+						resolve();
 					}
 				} catch {
-					// Server not ready yet, try again
 					setTimeout(checkServer, 200);
 				}
 			};
 
-			setTimeout(checkServer, 2000); // Wait a bit before first check
+			setTimeout(checkServer, 2000);
 		});
 	});
 
 	afterEach(async () => {
-		// Stop the server process
 		if (serverProcess) {
 			serverProcess.kill();
-			// Wait for process to die
 			await new Promise((resolve) => {
 				serverProcess.exited.then(resolve);
-				setTimeout(resolve, 2000); // Fallback timeout
+				setTimeout(resolve, 2000);
 			});
 		}
+	});
 
-		// Close database connection
-		db?.close();
-
-		// Clean up test database
-		await Bun.file(testDbFile).delete().catch(console.warn);
+	afterAll(async () => {
+		await sql?.end();
 	});
 
 	test('server should start and respond to /protocols endpoint', async () => {
 		const response = await fetch(`${SERVER_URL}/protocols`);
 		expect(response.ok).toBe(true);
 
-		const data = await response.json();
+		const data = (await response.json()) as { items: unknown[] };
 		expect(PaginatedResponseSchema('unknown').allows(data)).toBe(true);
-		expect(data.items.length).toBe(0); // Should be empty on fresh database
+		expect(data.items.length).toBe(0);
 	});
 
 	test('server should return 404 for non-existent correction', async () => {
@@ -118,22 +106,23 @@ describe('BeamUp Server Tests', () => {
 		const response = await fetch(`${SERVER_URL}/corrections/non-existent-protocol`);
 		expect(response.ok).toBe(true);
 
-		const data = await response.json();
+		const data = (await response.json()) as { items: unknown[] };
 		expect(PaginatedResponseSchema('unknown').allows(data)).toBe(true);
 		expect(data.items.length).toBe(0);
 	});
 
 	test('database should be clean before each test', async () => {
-		// This test verifies that the database is clean before each test
-		const storedCorrections = db.query('SELECT COUNT(*) as count FROM corrections').get() as {
-			count: number;
-		};
-		expect(storedCorrections.count).toBe(0);
+		const storedCorrections =
+			(await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+				count: number;
+			}[];
+		expect(storedCorrections[0]!.count).toBe(0);
 
-		const metadataRows = db.query('SELECT COUNT(*) as count FROM metadata_values').get() as {
-			count: number;
-		};
-		expect(metadataRows.count).toBe(0);
+		const metadataRows =
+			(await sql`SELECT cast(count(*) as int) as count FROM metadata_values`) as {
+				count: number;
+			}[];
+		expect(metadataRows[0]!.count).toBe(0);
 	});
 
 	test('sendCorrections should successfully send a correction to the server', async () => {
@@ -148,17 +137,17 @@ describe('BeamUp Server Tests', () => {
 			subject_type: 'observation' as const,
 			metadata: 'test-metadata-key',
 			before: {
-				value: '"before-value"', // JSON string
+				value: '"before-value"',
 				type: 'string' as const,
 				alternatives: [
 					{
-						value: '"alt-value"', // JSON string
+						value: '"alt-value"',
 						confidence: 0.8
 					}
 				]
 			},
 			after: {
-				value: '"after-value"', // JSON string
+				value: '"after-value"',
 				type: 'string' as const,
 				alternatives: []
 			},
@@ -167,19 +156,17 @@ describe('BeamUp Server Tests', () => {
 			done_at: new Date()
 		};
 
-		// This should succeed (all required fields provided)
 		expect(
 			sendCorrections({ origin: SERVER_URL, corrections: testCorrection })
 		).resolves.toBeUndefined();
 
-		// Verify that correction was stored in database using plain SQL
-		const storedCorrections = db.query('SELECT COUNT(*) as count FROM corrections').get() as {
-			count: number;
-		};
-		expect(storedCorrections.count).toBe(1);
+		const storedCorrections =
+			(await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
+				count: number;
+			}[];
+		expect(storedCorrections[0]!.count).toBe(1);
 
-		// Check specific correction data
-		const correction = db.query('SELECT * FROM corrections LIMIT 1').get() as any;
+		const [correction] = (await sql`SELECT * FROM corrections LIMIT 1`) as any[];
 		expect(correction.protocol_id).toBe('test-protocol');
 		expect(correction.protocol_version).toBe('1.0.0');
 		expect(correction.metadata).toBe('test-metadata-key');
@@ -188,11 +175,11 @@ describe('BeamUp Server Tests', () => {
 		expect(correction.subject).toBe('test-subject');
 		expect(correction.subject_type).toBe('observation');
 
-		// Check that metadata values were stored
-		const metadataCount = db.query('SELECT COUNT(*) as count FROM metadata_values').get() as {
-			count: number;
-		};
-		expect(metadataCount.count).toBe(2); // before and after values
+		const metadataCount =
+			(await sql`SELECT cast(count(*) as int) as count FROM metadata_values`) as {
+				count: number;
+			}[];
+		expect(metadataCount[0]!.count).toBe(2);
 	});
 
 	test('sendCorrections should handle validation errors (known server issue)', async () => {
@@ -226,7 +213,6 @@ describe('BeamUp Server Tests', () => {
 			done_at
 		};
 
-		// This test verifies that the client function is called and receives the expected server error
 		expect(
 			sendCorrections({ origin: SERVER_URL, corrections: testCorrection as any })
 		).rejects.toThrowErrorMatchingInlineSnapshot(
@@ -235,7 +221,6 @@ describe('BeamUp Server Tests', () => {
 	});
 
 	test('correctionsOfProtocol should return corrections when data exists', async () => {
-		// First send a correction
 		const testCorrection = {
 			client_name: 'test-client-filled',
 			client_version: '2.0.0',
@@ -246,12 +231,12 @@ describe('BeamUp Server Tests', () => {
 			subject_type: 'image' as const,
 			metadata: 'test-metadata-filled',
 			before: {
-				value: '"before-value-filled"', // JSON string
+				value: '"before-value-filled"',
 				type: 'string' as const,
 				alternatives: []
 			},
 			after: {
-				value: '"after-value-filled"', // JSON string
+				value: '"after-value-filled"',
 				type: 'string' as const,
 				alternatives: []
 			},
@@ -265,18 +250,18 @@ describe('BeamUp Server Tests', () => {
 			corrections: testCorrection
 		});
 
-		// Now test the client function
 		const protocolCorrections = await correctionsOfProtocol({
 			origin: SERVER_URL,
 			protocol: 'test-protocol-with-data'
 		});
 
 		expect(protocolCorrections).toHaveLength(1);
-		expect(protocolCorrections[0]).toMatchObject({
+		const firstCorrection = protocolCorrections[0]!;
+		expect(firstCorrection).toMatchObject({
 			client_name: 'test-client-filled',
 			client_version: '2.0.0',
 			comment: 'Test correction with data',
-			details_url: `http://localhost:3001/corrections/test-protocol-with-data/${protocolCorrections[0].id}`,
+			details_url: `http://localhost:3001/corrections/test-protocol-with-data/${firstCorrection.id}`,
 			metadata: 'test-metadata-filled',
 			protocol_id: 'test-protocol-with-data',
 			protocol_version: '2.0.0',
@@ -286,8 +271,7 @@ describe('BeamUp Server Tests', () => {
 			user: 'test-user-filled'
 		});
 
-		// Test the .details() method on the returned item
-		const details = await protocolCorrections[0].details();
+		const details = await firstCorrection.details();
 		expect(details).toMatchObject({
 			after: {
 				alternatives: [],
@@ -314,8 +298,6 @@ describe('BeamUp Server Tests', () => {
 	});
 
 	test('correctionsOfProtocol should return empty list (sendCorrections blocked by server validation)', async () => {
-		// Due to the server validation issue, we cannot successfully send corrections
-		// This test verifies that correctionsOfProtocol works when no data exists
 		const protocolCorrections = await correctionsOfProtocol({
 			origin: SERVER_URL,
 			protocol: 'test-protocol-2'
@@ -325,7 +307,6 @@ describe('BeamUp Server Tests', () => {
 	});
 
 	test('correctionDetails should return full correction details when data exists', async () => {
-		// Send a correction first
 		const testCorrection = {
 			client_name: 'detail-client',
 			client_version: '3.0.0',
@@ -336,21 +317,21 @@ describe('BeamUp Server Tests', () => {
 			subject_type: 'other' as const,
 			metadata: 'detail-metadata-filled',
 			before: {
-				value: '"detailed-before-filled"', // JSON string
+				value: '"detailed-before-filled"',
 				type: 'string' as const,
 				alternatives: [
 					{
-						value: '"alt-before"', // JSON string
+						value: '"alt-before"',
 						confidence: 0.9
 					}
 				]
 			},
 			after: {
-				value: '"detailed-after-filled"', // JSON string
+				value: '"detailed-after-filled"',
 				type: 'string' as const,
 				alternatives: [
 					{
-						value: '"alt-after"', // JSON string
+						value: '"alt-after"',
 						confidence: 0.7
 					}
 				]
@@ -365,14 +346,12 @@ describe('BeamUp Server Tests', () => {
 			corrections: testCorrection
 		});
 
-		// Get the correction ID from database
-		const correction = db.query('SELECT id FROM corrections LIMIT 1').get() as { id: string };
+		const [correction] = (await sql`SELECT id FROM corrections LIMIT 1`) as { id: string }[];
 
-		// Test the client function
 		const details = await correctionDetails({
 			origin: SERVER_URL,
 			protocol: 'detail-protocol-filled',
-			id: correction.id
+			id: correction!.id
 		});
 
 		expect(details).toMatchObject({
@@ -400,8 +379,8 @@ describe('BeamUp Server Tests', () => {
 			client_version: '3.0.0',
 			comment: 'Detailed correction with data',
 			done_at: testCorrection.done_at.toISOString(),
-			received_at: expect.any(String), // The server sets this automatically
-			id: correction.id,
+			received_at: expect.any(String),
+			id: correction!.id,
 			metadata: 'detail-metadata-filled',
 			protocol_id: 'detail-protocol-filled',
 			protocol_version: '3.0.0',
@@ -413,8 +392,6 @@ describe('BeamUp Server Tests', () => {
 	});
 
 	test('correctionDetails should return undefined for non-existent correction', async () => {
-		// Due to the server validation issue, we cannot successfully send corrections
-		// This test verifies that correctionDetails works when no data exists
 		const details = await correctionDetails({
 			origin: SERVER_URL,
 			protocol: 'detail-protocol',
@@ -425,14 +402,12 @@ describe('BeamUp Server Tests', () => {
 	});
 
 	test('client functions should handle empty results correctly', async () => {
-		// Test with non-existent protocol
 		const protocolCorrections = await correctionsOfProtocol({
 			origin: SERVER_URL,
 			protocol: 'non-existent-protocol'
 		});
 		expect(protocolCorrections).toHaveLength(0);
 
-		// Test with non-existent correction details
 		const details = await correctionDetails({
 			origin: SERVER_URL,
 			protocol: 'non-existent',
@@ -441,12 +416,11 @@ describe('BeamUp Server Tests', () => {
 		expect(details).toBeUndefined();
 	});
 
-	// Helper function to create test corrections
 	function createTestCorrection(index: number) {
 		return {
 			client_name: `test-client-${index}`,
 			client_version: '1.0.0',
-			protocol_id: `multi-test-protocol-${Math.floor(index / 10)}`, // Group corrections by protocol
+			protocol_id: `multi-test-protocol-${Math.floor(index / 10)}`,
 			protocol_version: '1.0.0',
 			subject: `test-subject-${index}`,
 			subject_content_hash: `hash-${index}`,
@@ -469,7 +443,6 @@ describe('BeamUp Server Tests', () => {
 	}
 
 	test('sendCorrections should handle multiple corrections', async () => {
-		// Create 5 test corrections
 		const corrections = Array.from({ length: 5 }, (_, i) => createTestCorrection(i));
 
 		await sendCorrections({
@@ -477,14 +450,12 @@ describe('BeamUp Server Tests', () => {
 			corrections
 		});
 
-		// Verify all corrections were stored
-		const storedCount = db.query('SELECT COUNT(*) as count FROM corrections').get() as {
+		const storedCount = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
 			count: number;
-		};
-		expect(storedCount.count).toBe(5);
+		}[];
+		expect(storedCount[0]!.count).toBe(5);
 
-		// Verify specific correction data
-		const storedCorrections = db.query('SELECT * FROM corrections ORDER BY subject').all() as any[];
+		const storedCorrections = (await sql`SELECT * FROM corrections ORDER BY subject`) as any[];
 		expect(storedCorrections).toHaveLength(5);
 
 		for (let i = 0; i < 5; i++) {
@@ -493,19 +464,14 @@ describe('BeamUp Server Tests', () => {
 			expect(storedCorrections[i].comment).toBe(`Test correction ${i}`);
 		}
 
-		// Verify metadata values were created (2 per correction: before and after)
-		const metadataCount = db.query('SELECT COUNT(*) as count FROM metadata_values').get() as {
-			count: number;
-		};
-		expect(metadataCount.count).toBe(10); // 5 corrections × 2 metadata values each
+		const metadataCount =
+			(await sql`SELECT cast(count(*) as int) as count FROM metadata_values`) as {
+				count: number;
+			}[];
+		expect(metadataCount[0]!.count).toBe(10);
 	});
 
 	test('sendCorrections should handle multiple chunks (more than CHUNK_SIZE corrections)', async () => {
-		// Since testing with 100+ corrections can be slow and may timeout,
-		// we'll test the chunking logic by verifying that CHUNK_SIZE works correctly
-		// and that the progress callback is called appropriately for chunks
-
-		// Test with exactly CHUNK_SIZE corrections (should be 1 chunk)
 		const exactChunkSize = CHUNK_SIZE;
 		const corrections1 = Array.from({ length: exactChunkSize }, (_, i) => createTestCorrection(i));
 		const progressCalls1: Array<{ chunk: number; sent: number; total: number }> = [];
@@ -518,7 +484,6 @@ describe('BeamUp Server Tests', () => {
 			}
 		});
 
-		// Should be exactly 1 chunk for CHUNK_SIZE corrections
 		expect(progressCalls1).toHaveLength(1);
 		expect(progressCalls1[0]).toEqual({
 			chunk: 0,
@@ -526,24 +491,12 @@ describe('BeamUp Server Tests', () => {
 			total: exactChunkSize
 		});
 
-		// Verify all corrections were stored
-		const storedCount1 = db.query('SELECT COUNT(*) as count FROM corrections').get() as {
+		const storedCount1 = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
 			count: number;
-		};
-		expect(storedCount1.count).toBe(exactChunkSize);
+		}[];
+		expect(storedCount1[0]!.count).toBe(exactChunkSize);
 
-		// Clean database for next test
-		db.exec('DELETE FROM metadata_value_alternatives');
-		db.exec('DELETE FROM metadata_values');
-		db.exec('DELETE FROM corrections');
-
-		// Test with a small number more than CHUNK_SIZE - this simulates multiple chunks
-		// but keeps the test fast. We'll test just the logic with 3 corrections but
-		// modify approach to test chunking behavior properly.
-		//
-		// Since we can't easily test 101 corrections due to timeout, we'll verify that
-		// the chunking logic works by confirming that sendCorrections properly handles
-		// arrays and that CHUNK_SIZE is used correctly in the implementation.
+		await sql`TRUNCATE metadata_value_alternatives, metadata_values, corrections RESTART IDENTITY CASCADE`;
 
 		const smallMultipleCorrections = Array.from({ length: 3 }, (_, i) =>
 			createTestCorrection(i + 2 * CHUNK_SIZE)
@@ -558,7 +511,6 @@ describe('BeamUp Server Tests', () => {
 			}
 		});
 
-		// Should be 1 chunk for 3 corrections (well under CHUNK_SIZE)
 		expect(progressCalls2).toHaveLength(1);
 		expect(progressCalls2[0]).toEqual({
 			chunk: 0,
@@ -566,11 +518,10 @@ describe('BeamUp Server Tests', () => {
 			total: 3
 		});
 
-		// Verify all corrections were stored
-		const storedCount2 = db.query('SELECT COUNT(*) as count FROM corrections').get() as {
+		const storedCount2 = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
 			count: number;
-		};
-		expect(storedCount2.count).toBe(3);
+		}[];
+		expect(storedCount2[0]!.count).toBe(3);
 	});
 
 	test('sendCorrections should call onProgress hook with multiple corrections', async () => {
@@ -585,27 +536,21 @@ describe('BeamUp Server Tests', () => {
 			}
 		});
 
-		// Should be called once since 5 corrections fit in one chunk
 		expect(progressCalls).toHaveLength(1);
 		expect(progressCalls[0]).toEqual({
-			chunk: 0, // First chunk (0-indexed)
-			sent: 5, // All 5 sent
-			total: 5 // Total of 5
+			chunk: 0,
+			sent: 5,
+			total: 5
 		});
 
-		// Verify corrections were stored
-		const storedCount = db.query('SELECT COUNT(*) as count FROM corrections').get() as {
+		const storedCount = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
 			count: number;
-		};
-		expect(storedCount.count).toBe(5);
+		}[];
+		expect(storedCount[0]!.count).toBe(5);
 	});
 
 	test('sendCorrections should call onProgress hook with multiple chunks', async () => {
-		// Since testing with actual 100+ corrections may be slow, we'll test the
-		// progress callback behavior by ensuring it works correctly with the chunking logic.
-		// The key is to verify that progress callbacks work properly with multiple corrections.
-
-		const correctionCount = 10; // Use a reasonable number for testing
+		const correctionCount = 10;
 		const corrections = Array.from({ length: correctionCount }, (_, i) => createTestCorrection(i));
 		const progressCalls: Array<{ chunk: number; sent: number; total: number }> = [];
 
@@ -617,25 +562,17 @@ describe('BeamUp Server Tests', () => {
 			}
 		});
 
-		// Should be called once since 10 corrections fit in one chunk
 		expect(progressCalls).toHaveLength(1);
-
-		// Progress should show: chunk 0, sent 10, total 10
 		expect(progressCalls[0]).toEqual({
 			chunk: 0,
 			sent: correctionCount,
 			total: correctionCount
 		});
 
-		// Verify all corrections were stored
-		const storedCount = db.query('SELECT COUNT(*) as count FROM corrections').get() as {
+		const storedCount = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
 			count: number;
-		};
-		expect(storedCount.count).toBe(correctionCount);
-
-		// If we had exactly CHUNK_SIZE corrections, we should get one progress call
-		// If we had CHUNK_SIZE + 1 corrections, we should get two progress calls
-		// This logic is tested in the chunking function and sendCorrections implementation
+		}[];
+		expect(storedCount[0]!.count).toBe(correctionCount);
 	});
 
 	test('sendCorrections should handle async onProgress hook', async () => {
@@ -647,7 +584,6 @@ describe('BeamUp Server Tests', () => {
 			origin: SERVER_URL,
 			corrections,
 			onProgress: async (chunk, sent, total) => {
-				// Simulate async work
 				await new Promise((resolve) => setTimeout(resolve, 10));
 				progressCalls.push({
 					chunk,
@@ -666,10 +602,9 @@ describe('BeamUp Server Tests', () => {
 		});
 		expect(progressCalls[0]!.timestamp).toBeGreaterThan(0);
 
-		// Verify corrections were stored
-		const storedCount = db.query('SELECT COUNT(*) as count FROM corrections').get() as {
+		const storedCount = (await sql`SELECT cast(count(*) as int) as count FROM corrections`) as {
 			count: number;
-		};
-		expect(storedCount.count).toBe(3);
+		}[];
+		expect(storedCount[0]!.count).toBe(3);
 	});
 });

@@ -1,11 +1,14 @@
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
+import postgres from 'postgres';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 
-import { Database } from 'bun:sqlite';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import * as c from './src/console.js';
 
-console.info(`Running with database ${c.strong(Bun.env.DB_FILE_NAME)}`);
+console.info(
+	`Running with database ${c.strong(Bun.env.DATABASE_URL?.replace(/\/\/[^@/]+@/, '//***@'))}`
+);
 
-const sqlite = new Database(Bun.env.DB_FILE_NAME);
-const db = drizzle(sqlite);
-migrate(db, { migrationsFolder: './drizzle' });
+const sql = postgres(Bun.env.DATABASE_URL, { max: 1 });
+const db = drizzle(sql);
+await migrate(db, { migrationsFolder: './drizzle' });
+await sql.end();

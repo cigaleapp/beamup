@@ -19,15 +19,23 @@ await sendCorrections({
 
 ### Usage
 
+The server requires a Postgres database. Provide its connection string via the `DATABASE_URL` environment variable.
+
 Use the Docker image:
 
 ```sh
-docker run -p 8000:3000 -e PROD=true -v ./db/:/app/db/:rw ghcr.io/cigaleapp/beamup:latest
+docker run -p 8000:3000 -e PROD=true -e DATABASE_URL=postgres://user:pass@host:5432/beamup ghcr.io/cigaleapp/beamup:latest
 ```
 
 - `-p`: listen on host machine's :8000
 - `-e`: set to production mode
-- `-v`: mount host machine's ./db directory to container's /app/db (make sure that you can write to the dih)
+- `-e DATABASE_URL`: connection string to your Postgres database
+
+Or use the provided `docker-compose.yaml`, which starts the app alongside a Postgres instance:
+
+```sh
+docker compose up
+```
 
 ### Development
 
