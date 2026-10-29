@@ -63,7 +63,7 @@
 	"dependencies": {
 		"arktype": "^2.2.8",
 		"date-fns": "^4.4.0",
-		"nodemailer": "^10.1.1",
+		"nodemailer": "^10.2.1",
 		"postgres": "^3.4.9"
 	}
 }
